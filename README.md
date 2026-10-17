@@ -6,7 +6,9 @@ Web UI and API skeleton for **ForteBank Datathon 26**. You upload a `.mov` from 
 
 ```
 argus/
-├─ index.html, src/          ← frontend (Vite + GSAP + Lenis, terminal UI with ForteBank raspberry accents)
+├─ index.html, src/          ← frontend (Vite, no framework, black terminal UI with ForteBank accents)
+│  ├─ src/main.js            ← landing + reviewer workspace (queue, review, CSV report)
+│  ├─ src/store.js           ← review history in IndexedDB
 │  ├─ src/api.js             ← API client (LIVE) + in-browser DEMO
 │  ├─ src/data.js            ← violation classes + regulatory sources (EDIT ME)
 │  └─ src/i18n.js            ← RU / EN strings
@@ -58,4 +60,9 @@ Every request needs the `X-API-Key` header. The server also reports `progress` (
 - [ ] Do not commit the dataset or the test videos (`.gitignore` already excludes `*.mov`/`*.zip`)
 - [ ] Processing must finish in under 5 minutes, and everything runs locally with no cloud AI
 
-Keys: `1`–`5` jump to sections, `/` opens the built-in shell (`help`, `connect <url> <key>`, `theme forte`, …). After a result: `r` new, `s` save JSON, `y` copy JSON.
+## Workspace (for the daily reviewer)
+- Drop several `.mov` files at once. They queue up and are processed one by one.
+- Each video is marked **ЧИСТО** (clean), **К ПРОВЕРКЕ** (to review) or **ПРОВЕРЕНО** (reviewed). For every event the reviewer clicks **confirm** or **dismiss**, and can add a note.
+- History and decisions are saved in the browser (IndexedDB). After a reload, drop the same file again to replay the video.
+- **E** exports the day's report to CSV.
+- Keys: `U` add · `J/K` next/prev video · `N` next to review · `1–9` / `[ ]` events · `C` confirm · `X` dismiss · `Space` play · `←/→` ±2s · `S` JSON · `Del` delete · `?` help
