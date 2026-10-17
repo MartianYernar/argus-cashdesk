@@ -3,445 +3,400 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ARGUS — AI-контроль кассовой дисциплины</title>
+  <title>ARGUS — terminal · ForteBank Datathon 26</title>
   <meta name="description" content="ARGUS — локальный AI-сервис, который находит признаки нарушений кассовой дисциплины на видео и показывает кадр-доказательство, таймкод и норму." />
-  <meta name="theme-color" content="#07070b" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307070b'/%3E%3Cellipse cx='32' cy='32' rx='24' ry='14' fill='none' stroke='%23c6ff3d' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='8' fill='%23ff3b5c'/%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#060708" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23060708'/%3E%3Ctext x='8' y='44' font-family='monospace' font-size='34' font-weight='700' fill='%23c6ff3d'%3E%3E%3C/text%3E%3Crect x='34' y='38' width='20' height='8' fill='%23d4145a'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700;900&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=VT323&display=swap" rel="stylesheet" />
 </head>
-<body class="is-loading">
+<body class="is-booting">
 
-  <!-- ============ PRELOADER ============ -->
-  <div class="preloader" id="preloader" aria-hidden="true">
-    <div class="preloader__grid"></div>
-    <div class="preloader__term" id="bootLog"></div>
-    <div class="preloader__count"><span id="bootCount">000</span><small>%</small></div>
-    <div class="preloader__eye">
-      <svg viewBox="0 0 200 120"><path class="lid" d="M10 60 Q100 -10 190 60 Q100 130 10 60Z"/><circle class="iris" cx="100" cy="60" r="26"/><circle class="pupil" cx="100" cy="60" r="10"/></svg>
-    </div>
-    <div class="preloader__curtain preloader__curtain--top"></div>
-    <div class="preloader__curtain preloader__curtain--bot"></div>
+  <!-- ============ BOOT ============ -->
+  <div class="boot" id="boot" aria-hidden="true">
+    <pre class="boot__log" id="bootLog"></pre>
+    <div class="boot__bar"><span id="bootBar">[                                        ]</span> <b id="bootPct">0%</b></div>
+    <div class="boot__skip">press any key to skip_</div>
   </div>
 
-  <!-- ============ OVERLAYS ============ -->
-  <div class="cursor" id="cursor"><div class="cursor__ring"><span class="cursor__label" id="cursorLabel"></span></div><div class="cursor__dot"></div></div>
-  <div class="grain" aria-hidden="true"></div>
-  <div class="scanlines" aria-hidden="true"></div>
-  <div class="progress" id="scrollProgress"></div>
+  <!-- ============ FX LAYERS ============ -->
+  <canvas class="rain" id="rain" aria-hidden="true"></canvas>
+  <div class="grid-bg" aria-hidden="true"></div>
+  <div class="crt" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="cursor" id="cursor" aria-hidden="true"><span class="cursor__block"></span><span class="cursor__label" id="cursorLabel"></span></div>
   <canvas class="sparks" id="sparks" aria-hidden="true"></canvas>
 
-  <!-- ============ NAV ============ -->
-  <header class="nav" id="nav">
-    <a href="#top" class="nav__logo" data-magnetic data-cursor="TOP">
-      <span class="logo-eye"><i></i></span>
-      <span class="glitch" data-text="ARGUS">ARGUS</span>
-    </a>
-    <nav class="nav__links">
-      <a href="#how" data-scramble data-i18n="nav.how">Как работает</a>
-      <a href="#analyze" data-scramble data-i18n="nav.analyze">Анализ</a>
-      <a href="#types" data-scramble data-i18n="nav.types">Нарушения</a>
-      <a href="#rules" data-scramble data-i18n="nav.rules">Нормы</a>
-      <a href="#api" data-scramble data-i18n="nav.api">API</a>
+  <!-- ============ TMUX STATUS BAR ============ -->
+  <header class="tmux" id="tmux">
+    <a href="#top" class="tmux__session" data-cursor="~"><span class="tmux__forte">▌</span>argus</a>
+    <nav class="tmux__tabs" id="tabs">
+      <a href="#pipeline" data-key="1"><b>1</b>:<span data-i18n="nav.how">pipeline</span></a>
+      <a href="#analyze" data-key="2"><b>2</b>:<span data-i18n="nav.analyze">analyze</span></a>
+      <a href="#types" data-key="3"><b>3</b>:<span data-i18n="nav.types">classes</span></a>
+      <a href="#rules" data-key="4"><b>4</b>:<span data-i18n="nav.rules">rules</span></a>
+      <a href="#api" data-key="5"><b>5</b>:api</a>
     </nav>
-    <div class="nav__right">
-      <button class="pill pill--status" id="modePill" data-magnetic data-cursor="SETUP"><i class="dot"></i><span id="modeLabel">DEMO</span></button>
-      <button class="pill" id="langToggle" data-magnetic data-cursor="LANG"><span class="lang-on">RU</span><span class="lang-sep">/</span><span class="lang-off">EN</span></button>
-      <button class="burger" id="burger" aria-label="Menu"><span></span><span></span></button>
+    <div class="tmux__right">
+      <button class="tmux__btn" id="modePill" data-cursor="cfg"><i class="dot"></i><span id="modeLabel">DEMO</span></button>
+      <button class="tmux__btn" id="langToggle" data-cursor="lang"><span class="lang-on">RU</span>/<span class="lang-off">EN</span></button>
+      <span class="tmux__clock" id="clock">00:00:00</span>
     </div>
   </header>
-  <div class="mobile-menu" id="mobileMenu">
-    <a href="#how" data-i18n="nav.how">Как работает</a>
-    <a href="#analyze" data-i18n="nav.analyze">Анализ</a>
-    <a href="#types" data-i18n="nav.types">Нарушения</a>
-    <a href="#rules" data-i18n="nav.rules">Нормы</a>
-    <a href="#api" data-i18n="nav.api">API</a>
-  </div>
 
   <main id="top">
 
     <!-- ============ HERO ============ -->
     <section class="hero" id="hero">
-      <canvas class="hero__gl" id="heroGL"></canvas>
-      <div class="hero__vignette"></div>
+      <div class="hero__left">
+        <div class="win win--hero">
+          <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span>forte@argus: ~</span><span class="win__meta">tty1 · 120×40</span></div>
+          <div class="win__body">
+            <pre class="hero__log" id="heroLog"></pre>
+            <pre class="ascii" id="ascii" aria-label="ARGUS"> █████╗ ██████╗  ██████╗ ██╗   ██╗███████╗
+██╔══██╗██╔══██╗██╔════╝ ██║   ██║██╔════╝
+███████║██████╔╝██║  ███╗██║   ██║███████╗
+██╔══██║██╔══██╗██║   ██║██║   ██║╚════██║
+██║  ██║██║  ██║╚██████╔╝╚██████╔╝███████║
+╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝</pre>
+            <p class="hero__tag"><span class="forte-chip">ForteBank × Datathon 26</span> <span class="dim">v1.0.0 · build local · cloud=off</span></p>
+            <div class="prompt"><span class="ps1">forte@argus</span>:<span class="ps2">~</span>$ <span class="typed" data-type data-i18n="hero.cmd">./argus --help</span></div>
+            <div class="hero__help">
+              <p class="out" data-i18n="hero.sub">Сто глаз на каждой кассе. ARGUS просматривает видеозаписи кассовых операций, находит признаки нарушений кассовой дисциплины и показывает кадр-доказательство, таймкод и норму РК — за секунды, а не часы.</p>
+              <pre class="out usage"><span class="k">USAGE</span>
+  argus analyze &lt;video.mov&gt;   <span class="dim"># <span data-i18n="hero.u1">вердикт + таймкод + кадры + норма</span></span>
+  argus classes               <span class="dim"># <span data-i18n="hero.u2">что умеет видеть</span></span>
+  argus rules                 <span class="dim"># <span data-i18n="hero.u3">нормативная база НБРК</span></span>
 
-      <div class="hero__hud hud-tl"><span>REC</span><i class="rec"></i><span id="hudClock">00:00:00:00</span></div>
-      <div class="hero__hud hud-tr"><span>CAM-01 · TOP VIEW</span><span class="mono dim" id="hudCoords">X 0000 · Y 0000</span></div>
-      <div class="hero__hud hud-bl"><span class="mono">ForteBank Datathon 26</span></div>
-      <div class="hero__hud hud-br"><span class="mono" id="hudFps">FPS 60</span></div>
-      <div class="hero__corners"><i></i><i></i><i></i><i></i></div>
-
-      <div class="hero__content">
-        <p class="eyebrow reveal-up"><span class="blink">▍</span><span data-i18n="hero.eyebrow">AI-сервис · полностью локально · без облака</span></p>
-        <h1 class="hero__title">
-          <span class="line"><span class="split" data-i18n="hero.t1">Сто глаз</span></span>
-          <span class="line line--outline"><span class="split" data-i18n="hero.t2">на каждой</span></span>
-          <span class="line line--accent"><span class="split" data-i18n="hero.t3">кассе.</span></span>
-        </h1>
-        <p class="hero__sub reveal-up" data-i18n="hero.sub">ARGUS просматривает видеозаписи кассовых операций, находит признаки нарушений кассовой дисциплины и показывает кадр-доказательство, таймкод и норму — за секунды, а не часы.</p>
-        <div class="hero__cta reveal-up">
-          <a href="#analyze" class="btn btn--primary" data-magnetic data-cursor="GO">
-            <span class="btn__fill"></span>
-            <span class="btn__label" data-i18n="hero.cta">Загрузить видео</span>
-            <span class="btn__arrow">↘</span>
-          </a>
-          <a href="#how" class="btn btn--ghost" data-magnetic data-cursor="READ">
-            <span class="btn__label" data-i18n="hero.cta2">Как это работает</span>
-          </a>
+<span class="k">FLAGS</span>
+  --local      <span class="ok">✓</span> <span data-i18n="hero.f1">все модели внутри контура</span>
+  --no-cloud   <span class="ok">✓</span> <span data-i18n="hero.f2">ни одного запроса во внешние AI</span>
+  --no-faces   <span class="ok">✓</span> <span data-i18n="hero.f3">распознавание лиц выключено</span></pre>
+            </div>
+            <div class="hero__cta">
+              <a href="#analyze" class="tbtn tbtn--forte" data-cursor="run"><span>[ ENTER ]</span> <span data-i18n="hero.cta">analyze video</span></a>
+              <a href="#pipeline" class="tbtn" data-cursor="man"><span>[ F1 ]</span> <span data-i18n="hero.cta2">man argus</span></a>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- fake camera feed with live detection boxes -->
-      <div class="feed reveal-up" id="heroFeed" data-tilt>
-        <div class="feed__head"><span class="mono">LIVE · CASHDESK_07</span><span class="mono feed__ts" id="feedTs">00:00.0</span></div>
-        <div class="feed__screen">
-          <div class="feed__desk"></div>
-          <div class="feed__counter"></div>
-          <div class="feed__person feed__person--a"></div>
-          <div class="feed__person feed__person--b"></div>
-          <div class="feed__cash"></div>
-          <div class="bbox bbox--a"><span>cashier · 0.97</span></div>
-          <div class="bbox bbox--b"><span>client · 0.91</span></div>
-          <div class="bbox bbox--c bbox--alert"><span>cash_unattended · 0.88</span></div>
-          <div class="feed__laser"></div>
+      <div class="hero__right">
+        <div class="radar" id="radarWrap">
+          <canvas id="radar"></canvas>
+          <div class="radar__hud radar__hud--tl">CAM-01 · TOP VIEW</div>
+          <div class="radar__hud radar__hud--tr"><span class="rec"></span> REC <span id="radarTs">00:00.0</span></div>
+          <div class="radar__hud radar__hud--bl" id="radarXY">x=000 y=000</div>
+          <div class="radar__hud radar__hud--br" id="radarObj">objects: 0</div>
         </div>
-        <div class="feed__foot">
-          <div class="feed__bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <span class="mono feed__alert" id="feedAlert">● ANALYZING</span>
-        </div>
+        <pre class="ticker" id="ticker"></pre>
       </div>
-
-      <div class="hero__scroll"><span data-i18n="hero.scroll">Скролль</span><i></i></div>
     </section>
-
-    <!-- ============ MARQUEE ============ -->
-    <div class="marquee" aria-hidden="true">
-      <div class="marquee__track" id="marquee1">
-        <span>ДЕТЕКЦИЯ</span><b>✦</b><span>ЛОКАЛИЗАЦИЯ</span><b>✦</b><span>КЛАССИФИКАЦИЯ</span><b>✦</b><span>ДОКАЗАТЕЛЬСТВА</span><b>✦</b><span>НОРМЫ РК</span><b>✦</b><span>OFFLINE</span><b>✦</b>
-        <span>ДЕТЕКЦИЯ</span><b>✦</b><span>ЛОКАЛИЗАЦИЯ</span><b>✦</b><span>КЛАССИФИКАЦИЯ</span><b>✦</b><span>ДОКАЗАТЕЛЬСТВА</span><b>✦</b><span>НОРМЫ РК</span><b>✦</b><span>OFFLINE</span><b>✦</b>
-      </div>
-    </div>
-    <div class="marquee marquee--alt" aria-hidden="true">
-      <div class="marquee__track" id="marquee2">
-        <span>violation</span><em>/</em><span>no_violation</span><em>/</em><span>timecode_sec</span><em>/</em><span>evidence_frames</span><em>/</em><span>X-API-Key</span><em>/</em>
-        <span>violation</span><em>/</em><span>no_violation</span><em>/</em><span>timecode_sec</span><em>/</em><span>evidence_frames</span><em>/</em><span>X-API-Key</span><em>/</em>
-      </div>
-    </div>
 
     <!-- ============ STATS ============ -->
-    <section class="stats" id="stats">
-      <div class="stat" data-tilt>
-        <div class="stat__num"><span data-count="43">0</span></div>
-        <div class="stat__label" data-i18n="stats.videos">видео в обучающем датасете</div>
-        <svg class="stat__ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54"/></svg>
-      </div>
-      <div class="stat" data-tilt>
-        <div class="stat__num stat__num--red"><span data-count="22">0</span></div>
-        <div class="stat__label" data-i18n="stats.viol">роликов с нарушением</div>
-        <svg class="stat__ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54"/></svg>
-      </div>
-      <div class="stat" data-tilt>
-        <div class="stat__num"><span data-count="5">0</span><small data-i18n="stats.min">мин</small></div>
-        <div class="stat__label" data-i18n="stats.limit">лимит на обработку одного видео</div>
-        <svg class="stat__ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54"/></svg>
-      </div>
-      <div class="stat" data-tilt>
-        <div class="stat__num stat__num--lime"><span data-count="0">0</span><small>☁</small></div>
-        <div class="stat__label" data-i18n="stats.cloud">обращений к облачным AI</div>
-        <svg class="stat__ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54"/></svg>
+    <section class="sec" id="stats">
+      <div class="win">
+        <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span>~/dataset</span><span class="win__meta">00</span></div>
+        <div class="win__body">
+          <div class="prompt"><span class="ps1">forte@argus</span>:<span class="ps2">~/dataset</span>$ <span class="typed" data-type>argus stats open_labels.xlsx</span></div>
+          <div class="stats" id="statsOut">
+            <div class="stat"><span class="stat__k" data-i18n="stats.videos">videos.total</span><span class="bar" data-bar="43" data-max="43"></span><b data-count="43">0</b></div>
+            <div class="stat"><span class="stat__k stat__k--forte" data-i18n="stats.viol">label=violation</span><span class="bar bar--forte" data-bar="22" data-max="43"></span><b data-count="22">0</b></div>
+            <div class="stat"><span class="stat__k" data-i18n="stats.clean">label=no_violation</span><span class="bar" data-bar="21" data-max="43"></span><b data-count="21">0</b></div>
+            <div class="stat"><span class="stat__k" data-i18n="stats.limit">time_limit.min</span><span class="bar bar--cyan" data-bar="5" data-max="43"></span><b data-count="5">0</b></div>
+            <div class="stat"><span class="stat__k" data-i18n="stats.cloud">cloud_ai.calls</span><span class="bar" data-bar="0" data-max="43"></span><b data-count="0" class="ok">0</b></div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- ============ HOW (pinned horizontal) ============ -->
-    <section class="how" id="how">
-      <div class="how__pin">
-        <div class="how__intro">
-          <p class="eyebrow"><span>01</span> — <span data-i18n="how.eyebrow">Пайплайн</span></p>
-          <h2 class="section-title"><span class="split" data-i18n="how.title">От файла до вердикта</span></h2>
-          <p class="muted" data-i18n="how.sub">Четыре шага. Ноль облаков. Каждый вывод — с кадром, который может проверить человек.</p>
-          <div class="how__progress"><i id="howBar"></i></div>
-        </div>
-        <div class="how__track" id="howTrack">
-          <article class="step" data-tilt>
-            <div class="step__n">01</div>
-            <div class="step__art">
-              <svg viewBox="0 0 200 140" class="art-upload"><rect x="40" y="20" width="120" height="100" rx="10" class="s"/><path d="M100 95 V45 M80 65 L100 45 L120 65" class="s s--lime"/><rect x="40" y="20" width="120" height="100" rx="10" class="s s--dash"/></svg>
-            </div>
-            <h3 data-i18n="how.s1t">Загрузка .mov</h3>
-            <p data-i18n="how.s1p">Перетащи запись с камеры над кассой. Видео не покидает контур — обработка идёт на сервере команды.</p>
-          </article>
-          <article class="step" data-tilt>
-            <div class="step__n">02</div>
-            <div class="step__art">
-              <svg viewBox="0 0 200 140" class="art-frames"><rect class="f f1" x="20" y="40" width="44" height="60" rx="4"/><rect class="f f2" x="58" y="34" width="44" height="72" rx="4"/><rect class="f f3" x="96" y="28" width="44" height="84" rx="4"/><rect class="f f4" x="134" y="22" width="44" height="96" rx="4"/></svg>
-            </div>
-            <h3 data-i18n="how.s2t">Нарезка кадров</h3>
-            <p data-i18n="how.s2p">Видео разбирается на кадры с привязкой ко времени. Каждый кадр — потенциальное доказательство.</p>
-          </article>
-          <article class="step" data-tilt>
-            <div class="step__n">03</div>
-            <div class="step__art">
-              <svg viewBox="0 0 200 140" class="art-detect"><circle cx="100" cy="70" r="46" class="s"/><circle cx="100" cy="70" r="30" class="s s--dash"/><circle cx="100" cy="70" r="6" class="fill-red"/><line x1="100" y1="70" x2="146" y2="70" class="s s--lime sweep"/></svg>
-            </div>
-            <h3 data-i18n="how.s3t">Детекция событий</h3>
-            <p data-i18n="how.s3p">Локальная модель ищет визуально наблюдаемые действия: кто где, что в руках, что осталось без присмотра.</p>
-          </article>
-          <article class="step" data-tilt>
-            <div class="step__n">04</div>
-            <div class="step__art">
-              <svg viewBox="0 0 200 140" class="art-verdict"><rect x="30" y="24" width="140" height="92" rx="10" class="s"/><path d="M60 72 L88 96 L142 44" class="s s--lime check"/></svg>
-            </div>
-            <h3 data-i18n="how.s4t">Вердикт + норма</h3>
-            <p data-i18n="how.s4p">Тип, таймкод, 1–3 кадра-доказательства, описание и ссылка на пункт нормативного акта РК.</p>
-          </article>
-          <article class="step step--end">
-            <h3 class="huge" data-i18n="how.end">Готово.<br/>Проверяй.</h3>
-            <a href="#analyze" class="btn btn--primary" data-magnetic data-cursor="GO"><span class="btn__fill"></span><span class="btn__label" data-i18n="how.go">К анализу</span><span class="btn__arrow">→</span></a>
-          </article>
+    <!-- ============ PIPELINE ============ -->
+    <section class="sec" id="pipeline">
+      <div class="sec__head">
+        <span class="sec__num">01</span>
+        <h2 class="sec__title glitch" data-text="PIPELINE" data-scramble>PIPELINE</h2>
+        <p class="dim" data-i18n="how.sub">Четыре шага. Ноль облаков. Каждый вывод — с кадром, который может проверить человек.</p>
+      </div>
+      <div class="win">
+        <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span>argus pipeline --explain</span><span class="win__meta">01</span></div>
+        <div class="win__body">
+          <div class="prompt"><span class="ps1">forte@argus</span>:<span class="ps2">~</span>$ <span class="typed" data-type>argus pipeline --explain --verbose</span></div>
+          <div class="pipe" id="pipe">
+            <div class="pipe__node" data-step="0"><pre>┌──────────┐
+│  UPLOAD  │
+│  .mov ↑  │
+└──────────┘</pre><p data-i18n="how.s1p">Запись с камеры над кассой. Видео не покидает контур.</p></div>
+            <div class="pipe__wire"><span>──────▶</span></div>
+            <div class="pipe__node" data-step="1"><pre>┌──────────┐
+│  FRAMES  │
+│ ▯▯▯▯▯▯▯▯ │
+└──────────┘</pre><p data-i18n="how.s2p">Нарезка на кадры с привязкой ко времени.</p></div>
+            <div class="pipe__wire"><span>──────▶</span></div>
+            <div class="pipe__node" data-step="2"><pre>┌──────────┐
+│  DETECT  │
+│  ◉ yolo  │
+└──────────┘</pre><p data-i18n="how.s3p">Локальная модель: кто где, что в руках, что без присмотра.</p></div>
+            <div class="pipe__wire"><span>──────▶</span></div>
+            <div class="pipe__node pipe__node--forte" data-step="3"><pre>┌──────────┐
+│ VERDICT  │
+│ § НБРК   │
+└──────────┘</pre><p data-i18n="how.s4p">Тип, таймкод, 1–3 кадра, описание и пункт акта РК.</p></div>
+          </div>
+          <pre class="pipe__log" id="pipeLog"></pre>
         </div>
       </div>
     </section>
 
     <!-- ============ ANALYZER ============ -->
-    <section class="analyze" id="analyze">
-      <div class="section-head">
-        <p class="eyebrow"><span>02</span> — <span data-i18n="an.eyebrow">Анализатор</span></p>
-        <h2 class="section-title"><span class="split" data-i18n="an.title">Брось видео в глаз</span></h2>
-        <p class="muted" data-i18n="an.sub">Формат .mov, ~29 МБ. Результат — подсказка для проверяющего, а не окончательное заключение.</p>
+    <section class="sec" id="analyze">
+      <div class="sec__head">
+        <span class="sec__num">02</span>
+        <h2 class="sec__title glitch" data-text="ANALYZE" data-scramble>ANALYZE</h2>
+        <p class="dim" data-i18n="an.sub">Формат .mov, ~29 МБ. Результат — подсказка для проверяющего, а не окончательное заключение.</p>
       </div>
 
-      <div class="console" id="console">
-        <div class="console__bar">
-          <span class="dots"><i></i><i></i><i></i></span>
-          <span class="mono" id="consoleTitle">argus://analyze</span>
-          <span class="mono console__mode" id="consoleMode">DEMO MODE</span>
-        </div>
+      <div class="win win--main" id="console">
+        <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span id="consoleTitle">argus analyze</span><span class="win__meta mode" id="consoleMode">DEMO</span></div>
+        <div class="win__body">
 
-        <!-- STATE: idle -->
-        <div class="stage stage--idle is-active" data-stage="idle">
-          <label class="drop" id="drop" data-cursor="DROP">
-            <input type="file" id="fileInput" accept=".mov,video/quicktime,video/*" hidden />
-            <div class="drop__border"></div>
-            <div class="drop__glow"></div>
-            <div class="drop__inner">
-              <div class="drop__icon">
-                <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="56" class="o"/><circle cx="60" cy="60" r="40" class="m"/><path d="M60 78 V40 M44 54 L60 38 L76 54" class="a"/></svg>
+          <!-- idle -->
+          <div class="stage is-active" data-stage="idle">
+            <div class="prompt"><span class="ps1">forte@argus</span>:<span class="ps2">~/analyze</span>$ argus analyze <span class="blinkc">_</span></div>
+            <label class="drop" id="drop" data-cursor="drop">
+              <input type="file" id="fileInput" accept=".mov,video/quicktime,video/*" hidden />
+<pre class="drop__art">╔══════════════════════════════════════════════╗
+║                                              ║
+║                    ┌───┐                     ║
+║                    │ ↑ │                     ║
+║                    └───┘                     ║
+║                                              ║
+╚══════════════════════════════════════════════╝</pre>
+              <div class="drop__text">
+                <b data-i18n="an.drop">DROP .MOV HERE</b>
+                <span class="dim" data-i18n="an.or">или кликни, чтобы выбрать файл</span>
+                <span class="drop__chips"><i>.mov</i><i>top view</i><i>no audio</i><i>≤ 5 min</i></span>
               </div>
-              <h3 data-i18n="an.drop">Перетащи .mov сюда</h3>
-              <p class="muted" data-i18n="an.or">или нажми, чтобы выбрать файл</p>
-              <div class="drop__chips"><span>.MOV</span><span>≤ 300 MB</span><span>TOP VIEW</span><span>NO AUDIO</span></div>
-            </div>
-          </label>
-          <div class="hint mono" data-i18n="an.hint">В DEMO-режиме результат генерируется в браузере для показа UI. Подключи бэкенд в ⚙ настройках.</div>
-        </div>
+            </label>
+            <p class="hint" data-i18n="an.hint"># DEMO: результат генерируется в браузере для показа UI. Подключи бэкенд: кнопка DEMO вверху или команда `connect`.</p>
+          </div>
 
-        <!-- STATE: processing -->
-        <div class="stage stage--proc" data-stage="proc">
-          <div class="proc">
-            <div class="proc__video">
-              <video id="procVideo" muted playsinline loop></video>
-              <div class="proc__laser"></div>
-              <div class="proc__grid"></div>
-              <div class="proc__boxes" id="procBoxes"></div>
-              <div class="proc__hud mono"><span id="procFile">file.mov</span><span id="procSize">0 MB</span></div>
-            </div>
-            <div class="proc__side">
-              <div class="ring">
-                <svg viewBox="0 0 200 200"><circle class="ring__bg" cx="100" cy="100" r="88"/><circle class="ring__fg" id="ringFg" cx="100" cy="100" r="88"/></svg>
-                <div class="ring__num"><span id="procPct">0</span><small>%</small></div>
-                <div class="ring__label mono" id="procStatus">UPLOADING</div>
+          <!-- processing -->
+          <div class="stage" data-stage="proc">
+            <div class="proc">
+              <div class="proc__video">
+                <video id="procVideo" muted playsinline loop></video>
+                <div class="proc__scan"></div>
+                <div class="proc__boxes" id="procBoxes"></div>
+                <div class="proc__hud"><span id="procFile">file.mov</span><span id="procSize">0 MB</span></div>
               </div>
-              <ol class="phases" id="phases">
-                <li data-phase="upload"><i></i><span data-i18n="ph.upload">Загрузка файла</span></li>
-                <li data-phase="queue"><i></i><span data-i18n="ph.queue">Постановка в очередь</span></li>
-                <li data-phase="frames"><i></i><span data-i18n="ph.frames">Извлечение кадров</span></li>
-                <li data-phase="detect"><i></i><span data-i18n="ph.detect">Детекция событий</span></li>
-                <li data-phase="rules"><i></i><span data-i18n="ph.rules">Сопоставление с нормами</span></li>
-              </ol>
+              <div class="proc__side">
+                <pre class="pbar"><span id="procBar">[                              ]</span> <b id="procPct">0</b>%</pre>
+                <div class="proc__status">status: <b id="procStatus">UPLOADING</b></div>
+                <ul class="units" id="phases">
+                  <li data-phase="upload"><span class="u">[      ]</span> <span data-i18n="ph.upload">upload.service</span></li>
+                  <li data-phase="queue"><span class="u">[      ]</span> <span data-i18n="ph.queue">queue.service</span></li>
+                  <li data-phase="frames"><span class="u">[      ]</span> <span data-i18n="ph.frames">frames.extract</span></li>
+                  <li data-phase="detect"><span class="u">[      ]</span> <span data-i18n="ph.detect">vision.detect</span></li>
+                  <li data-phase="rules"><span class="u">[      ]</span> <span data-i18n="ph.rules">rules.match (НБРК)</span></li>
+                </ul>
+              </div>
             </div>
-          </div>
-          <div class="filmstrip" id="filmstrip"></div>
-          <pre class="log mono" id="log"></pre>
-          <button class="btn btn--ghost btn--sm" id="cancelBtn" data-magnetic><span class="btn__label" data-i18n="an.cancel">Отмена</span></button>
-        </div>
-
-        <!-- STATE: result -->
-        <div class="stage stage--result" data-stage="result">
-          <div class="verdict" id="verdict">
-            <div class="verdict__burst"></div>
-            <div class="verdict__icon" id="verdictIcon"></div>
-            <div class="verdict__text">
-              <span class="mono verdict__kicker" id="verdictKicker">VERDICT</span>
-              <h3 class="verdict__title" id="verdictTitle">—</h3>
-              <p class="muted" id="verdictSub"></p>
-            </div>
-            <div class="verdict__meta mono">
-              <span>job_id <b id="jobId">—</b></span>
-              <span><span data-i18n="res.time">время</span> <b id="jobTime">—</b></span>
-              <span><span data-i18n="res.count">событий</span> <b id="jobCount">0</b></span>
-            </div>
+            <div class="filmstrip" id="filmstrip"></div>
+            <pre class="log" id="log"></pre>
+            <button class="tbtn" id="cancelBtn" data-cursor="^C"><span>[ ^C ]</span> <span data-i18n="an.cancel">cancel</span></button>
           </div>
 
-          <div class="player">
-            <div class="player__screen">
-              <video id="resVideo" playsinline controls></video>
-              <div class="player__flash" id="playerFlash"></div>
+          <!-- result -->
+          <div class="stage" data-stage="result">
+            <div class="verdict" id="verdict">
+              <pre class="verdict__icon" id="verdictIcon"></pre>
+              <div class="verdict__text">
+                <span class="verdict__kicker" id="verdictKicker">VERDICT</span>
+                <h3 class="verdict__title" id="verdictTitle">—</h3>
+                <p class="dim" id="verdictSub"></p>
+              </div>
+              <pre class="verdict__meta">job_id  <b id="jobId">—</b>
+elapsed <b id="jobTime">—</b>
+events  <b id="jobCount">0</b></pre>
             </div>
-            <div class="timeline" id="timeline">
-              <div class="timeline__track"><div class="timeline__played" id="tlPlayed"></div></div>
-              <div class="timeline__marks" id="tlMarks"></div>
-              <div class="timeline__labels mono"><span>00:00</span><span id="tlEnd">00:00</span></div>
+
+            <div class="player">
+              <div class="player__screen"><video id="resVideo" playsinline controls></video><div class="player__flash" id="playerFlash"></div></div>
+              <div class="timeline" id="timeline">
+                <div class="timeline__track"><div class="timeline__played" id="tlPlayed"></div></div>
+                <div class="timeline__marks" id="tlMarks"></div>
+                <div class="timeline__labels"><span>00:00</span><span id="tlEnd">00:00</span></div>
+              </div>
             </div>
+
+            <div class="violations" id="violations"></div>
+
+            <div class="result__actions">
+              <button class="tbtn tbtn--forte" id="againBtn" data-cursor="new"><span>[ R ]</span> <span data-i18n="res.again">analyze another</span></button>
+              <button class="tbtn" id="jsonBtn" data-cursor="save"><span>[ S ]</span> <span data-i18n="res.json">save result.json</span></button>
+              <button class="tbtn" id="copyBtn" data-cursor="copy"><span>[ Y ]</span> <span data-i18n="res.copy">yank json</span></button>
+            </div>
+            <p class="hint" data-i18n="res.disc"># ⚠ Результат является подсказкой для проверки человеком, а не окончательным юридическим или дисциплинарным заключением.</p>
           </div>
 
-          <div class="violations" id="violations"></div>
-
-          <div class="result__actions">
-            <button class="btn btn--primary" id="againBtn" data-magnetic data-cursor="NEW"><span class="btn__fill"></span><span class="btn__label" data-i18n="res.again">Проверить ещё</span><span class="btn__arrow">↻</span></button>
-            <button class="btn btn--ghost" id="jsonBtn" data-magnetic data-cursor="JSON"><span class="btn__label" data-i18n="res.json">Скачать JSON</span></button>
-            <button class="btn btn--ghost" id="copyBtn" data-magnetic data-cursor="COPY"><span class="btn__label" data-i18n="res.copy">Копировать JSON</span></button>
-          </div>
-          <p class="disclaimer mono" data-i18n="res.disc">⚠ Результат является подсказкой для проверки человеком, а не окончательным юридическим или дисциплинарным заключением.</p>
-        </div>
-
-        <!-- STATE: error -->
-        <div class="stage stage--error" data-stage="error">
-          <div class="err">
-            <div class="err__glitch glitch" data-text="ERROR">ERROR</div>
-            <p id="errMsg" class="mono">—</p>
-            <button class="btn btn--primary" id="retryBtn" data-magnetic><span class="btn__fill"></span><span class="btn__label" data-i18n="err.retry">Попробовать снова</span></button>
+          <!-- error -->
+          <div class="stage" data-stage="error">
+            <pre class="err__art glitch" data-text="SEGFAULT">SEGFAULT</pre>
+            <pre class="err__msg">stderr: <span id="errMsg">—</span></pre>
+            <button class="tbtn tbtn--forte" id="retryBtn"><span>[ ↻ ]</span> <span data-i18n="err.retry">retry</span></button>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ============ TYPES ============ -->
-    <section class="types" id="types">
-      <div class="section-head">
-        <p class="eyebrow"><span>03</span> — <span data-i18n="ty.eyebrow">Классы событий</span></p>
-        <h2 class="section-title"><span class="split" data-i18n="ty.title">Что видит ARGUS</span></h2>
-        <p class="muted" data-i18n="ty.sub">Только то, что видно на видео. Никаких выводов о проводках, сверках и данных, которых нет в кадре. Никакого распознавания лиц.</p>
+    <!-- ============ CLASSES ============ -->
+    <section class="sec" id="types">
+      <div class="sec__head">
+        <span class="sec__num">03</span>
+        <h2 class="sec__title glitch" data-text="CLASSES" data-scramble>CLASSES</h2>
+        <p class="dim" data-i18n="ty.sub">Только то, что видно на видео. Никаких выводов о проводках и сверках. Никакого распознавания лиц.</p>
       </div>
-      <div class="types__grid" id="typesGrid"></div>
+      <div class="win">
+        <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span>argus classes --list</span><span class="win__meta">03</span></div>
+        <div class="win__body">
+          <div class="prompt"><span class="ps1">forte@argus</span>:<span class="ps2">~</span>$ <span class="typed" data-type>argus classes --list --format=table</span></div>
+          <div class="table" id="typesGrid"></div>
+        </div>
+      </div>
     </section>
 
     <!-- ============ RULES ============ -->
-    <section class="rules" id="rules">
-      <div class="section-head">
-        <p class="eyebrow"><span>04</span> — <span data-i18n="ru.eyebrow">Нормативная база</span></p>
-        <h2 class="section-title"><span class="split" data-i18n="ru.title">Каждый флаг — со ссылкой</span></h2>
-        <p class="muted" data-i18n="ru.sub">Источник → правило → наблюдаемый фрагмент. Только акты Республики Казахстан (НБРК, adilet.zan.kz).</p>
+    <section class="sec" id="rules">
+      <div class="sec__head">
+        <span class="sec__num">04</span>
+        <h2 class="sec__title glitch" data-text="RULES" data-scramble>RULES</h2>
+        <p class="dim" data-i18n="ru.sub">Источник → правило → наблюдаемый фрагмент. Только акты Республики Казахстан (НБРК, adilet.zan.kz).</p>
       </div>
-      <div class="chain">
-        <div class="chain__node"><span class="mono">SOURCE</span><b data-i18n="ru.c1">Нормативный акт РК</b></div>
-        <div class="chain__wire"><i></i></div>
-        <div class="chain__node"><span class="mono">RULE</span><b data-i18n="ru.c2">Пункт / раздел</b></div>
-        <div class="chain__wire"><i></i></div>
-        <div class="chain__node chain__node--red"><span class="mono">EVIDENCE</span><b data-i18n="ru.c3">Кадр + таймкод</b></div>
+      <div class="win">
+        <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span>grep -rn "касс" ./adilet</span><span class="win__meta">04</span></div>
+        <div class="win__body">
+          <div class="prompt"><span class="ps1">forte@argus</span>:<span class="ps2">~/law</span>$ <span class="typed" data-type>grep -rn "кассов" ./adilet.zan.kz --include=*.nbrk</span></div>
+          <pre class="chain">  <span class="ok">SOURCE</span> ──▶ <span class="cy">RULE §</span> ──▶ <span class="fo">EVIDENCE (frame + timecode)</span></pre>
+          <div class="rules" id="rulesList"></div>
+        </div>
       </div>
-      <div class="rules__list" id="rulesList"></div>
     </section>
 
     <!-- ============ ARCH ============ -->
-    <section class="arch" id="arch">
-      <div class="section-head">
-        <p class="eyebrow"><span>05</span> — <span data-i18n="ar.eyebrow">Архитектура</span></p>
-        <h2 class="section-title"><span class="split" data-i18n="ar.title">Внутри контура банка</span></h2>
+    <section class="sec" id="arch">
+      <div class="sec__head">
+        <span class="sec__num">05</span>
+        <h2 class="sec__title glitch" data-text="TOPOLOGY" data-scramble>TOPOLOGY</h2>
+        <p class="dim" data-i18n="ar.sub">Всё работает внутри контура банка. После загрузки весов интернет не нужен.</p>
       </div>
-      <div class="arch__diagram">
-        <svg viewBox="0 0 1000 360" class="arch__svg" id="archSvg">
-          <defs>
-            <linearGradient id="gWire" x1="0" x2="1"><stop offset="0" stop-color="#c6ff3d"/><stop offset="1" stop-color="#3df2ff"/></linearGradient>
-          </defs>
-          <rect x="20" y="20" width="960" height="320" rx="24" class="perimeter"/>
-          <text x="44" y="54" class="perim-label">LOCAL PERIMETER · NO INTERNET REQUIRED</text>
-          <g class="node" transform="translate(70,140)"><rect width="170" height="90" rx="14"/><text x="85" y="40">WEB UI</text><text x="85" y="64" class="sub">upload · results</text></g>
-          <g class="node" transform="translate(310,140)"><rect width="170" height="90" rx="14"/><text x="85" y="40">API</text><text x="85" y="64" class="sub">X-API-Key · jobs</text></g>
-          <g class="node node--hot" transform="translate(550,90)"><rect width="190" height="90" rx="14"/><text x="95" y="40">VISION MODEL</text><text x="95" y="64" class="sub">local weights</text></g>
-          <g class="node" transform="translate(550,200)"><rect width="190" height="90" rx="14"/><text x="95" y="40">RULE MAPPER</text><text x="95" y="64" class="sub">НБРК · adilet</text></g>
-          <g class="node" transform="translate(800,140)"><rect width="150" height="90" rx="14"/><text x="75" y="40">REPORT</text><text x="75" y="64" class="sub">JSON + frames</text></g>
-          <path class="wire" d="M240 185 H310"/>
-          <path class="wire" d="M480 185 C515 185 515 135 550 135"/>
-          <path class="wire" d="M480 185 C515 185 515 245 550 245"/>
-          <path class="wire" d="M740 135 C770 135 770 185 800 185"/>
-          <path class="wire" d="M740 245 C770 245 770 185 800 185"/>
-          <g class="cloud-x" transform="translate(860,40)"><path d="M10 30 a14 14 0 0 1 10 -22 a18 18 0 0 1 34 4 a12 12 0 0 1 6 22 Z"/><line x1="0" y1="0" x2="70" y2="44"/><line x1="70" y1="0" x2="0" y2="44"/></g>
-        </svg>
-      </div>
-      <div class="arch__pills">
-        <span class="tag">FastAPI</span><span class="tag">OpenCV</span><span class="tag">PyTorch</span><span class="tag">YOLO / ViT</span><span class="tag">Vite</span><span class="tag">GSAP</span><span class="tag">Three.js</span><span class="tag">Docker</span>
+      <div class="win">
+        <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span>argus topology</span><span class="win__meta">05</span></div>
+        <div class="win__body">
+<pre class="arch" id="arch"><span class="dim">╭─────────────────────────────── LOCAL PERIMETER · NO INTERNET ────────────────────────────────╮</span>
+<span class="dim">│</span>                                                                                              <span class="dim">│</span>
+<span class="dim">│</span>   ┌──────────┐      ┌──────────────┐      ┌────────────────┐      ┌──────────────┐           <span class="dim">│</span>
+<span class="dim">│</span>   │  WEB UI  │<span class="flow">━━━━━▶</span>│ API :8000    │<span class="flow">━━━━━▶</span>│ <span class="fo">VISION MODEL</span>   │<span class="flow">━━━━━▶</span>│ REPORT JSON  │           <span class="dim">│</span>
+<span class="dim">│</span>   │  upload  │      │ X-API-Key    │      │ local weights  │      │ + frames b64 │           <span class="dim">│</span>
+<span class="dim">│</span>   └──────────┘      └──────┬───────┘      └───────┬────────┘      └──────▲───────┘           <span class="dim">│</span>
+<span class="dim">│</span>                            │ jobs                 │ events               │                   <span class="dim">│</span>
+<span class="dim">│</span>                            ▼                      ▼                      │                   <span class="dim">│</span>
+<span class="dim">│</span>                     ┌──────────────┐      ┌────────────────┐             │                   <span class="dim">│</span>
+<span class="dim">│</span>                     │ queue/worker │      │ RULE MAPPER    │<span class="flow">━━━━━━━━━━━━━┛</span>                   <span class="dim">│</span>
+<span class="dim">│</span>                     └──────────────┘      │ НБРК · adilet  │                                 <span class="dim">│</span>
+<span class="dim">│</span>                                           └────────────────┘                                 <span class="dim">│</span>
+<span class="dim">╰──────────────────────────────────────────────────────────────────────────────────────────────╯</span>
+                                                                    <span class="fo">☁ cloud AI ── ✕ BLOCKED</span></pre>
+          <div class="pkgs"><span>fastapi</span><span>opencv</span><span>pytorch</span><span>yolo/vit</span><span>vite</span><span>gsap</span><span>docker</span></div>
+        </div>
       </div>
     </section>
 
     <!-- ============ API ============ -->
-    <section class="api" id="api">
-      <div class="section-head">
-        <p class="eyebrow"><span>06</span> — API</p>
-        <h2 class="section-title"><span class="split" data-i18n="api.title">Для жюри и машин</span></h2>
-        <p class="muted" data-i18n="api.sub">Два шага: загрузить видео и забрать результат. Ключ — в заголовке X-API-Key.</p>
+    <section class="sec" id="api">
+      <div class="sec__head">
+        <span class="sec__num">06</span>
+        <h2 class="sec__title glitch" data-text="API" data-scramble>API</h2>
+        <p class="dim" data-i18n="api.sub">Два шага: загрузить видео и забрать результат. Ключ — в заголовке X-API-Key.</p>
       </div>
-      <div class="api__grid">
-        <div class="endpoints">
-          <div class="ep" data-tilt><span class="verb verb--post">POST</span><code>/api/v1/analyze</code><p data-i18n="api.e1">multipart поле <b>file</b> (.mov) → <b>job_id</b></p></div>
-          <div class="ep" data-tilt><span class="verb verb--get">GET</span><code>/api/v1/jobs/{job_id}</code><p data-i18n="api.e2"><b>processing</b> · <b>done</b> · <b>failed</b> + результат</p></div>
+      <div class="api">
+        <div class="win">
+          <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span>routes</span><span class="win__meta">06</span></div>
+          <div class="win__body endpoints">
+            <div class="ep"><span class="verb verb--post">POST</span> <code>/api/v1/analyze</code><p class="dim" data-i18n="api.e1">multipart поле file (.mov) → job_id</p></div>
+            <div class="ep"><span class="verb verb--get">GET </span> <code>/api/v1/jobs/{job_id}</code><p class="dim" data-i18n="api.e2">processing · done · failed + результат</p></div>
+            <div class="ep"><span class="verb verb--hdr">HDR </span> <code>X-API-Key: &lt;key&gt;</code><p class="dim" data-i18n="api.e3">без ключа → 401</p></div>
+          </div>
         </div>
-        <div class="code">
-          <div class="code__tabs" id="codeTabs">
+        <div class="win code">
+          <div class="win__bar code__tabs" id="codeTabs">
             <button class="is-active" data-lang="curl">curl</button>
             <button data-lang="py">python</button>
             <button data-lang="js">js</button>
             <button data-lang="json">response</button>
-            <button class="code__copy" id="codeCopy" data-cursor="COPY">⧉</button>
+            <button class="code__copy" id="codeCopy" data-cursor="yank">⧉ yank</button>
           </div>
-          <pre class="code__body mono" id="codeBody"></pre>
+          <pre class="code__body" id="codeBody"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SHELL ============ -->
+    <section class="sec" id="shell">
+      <div class="sec__head">
+        <span class="sec__num">07</span>
+        <h2 class="sec__title glitch" data-text="SHELL" data-scramble>SHELL</h2>
+        <p class="dim" data-i18n="sh.sub">Да, это настоящий шелл. Набери help.</p>
+      </div>
+      <div class="win win--shell" id="shellWin">
+        <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span>bash — argus</span><span class="win__meta">07</span></div>
+        <div class="win__body">
+          <pre class="shell__out" id="shellOut"></pre>
+          <label class="shell__line"><span class="ps1">forte@argus</span>:<span class="ps2">~</span>$&nbsp;<input id="shellIn" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="shell" /></label>
         </div>
       </div>
     </section>
 
     <!-- ============ FOOTER ============ -->
-    <footer class="footer" id="footer">
-      <div class="footer__cta">
-        <p class="eyebrow" data-i18n="ft.eyebrow">Готов увидеть всё?</p>
-        <a href="#analyze" class="footer__big" id="footerBig" data-cursor="GO">
-          <span class="footer__word" data-text="ARGUS">ARGUS</span>
-        </a>
-      </div>
-      <div class="footer__row mono">
-        <span>© 2026 · ARGUS · ForteBank Datathon 26</span>
+    <footer class="footer">
+      <pre class="footer__ascii" id="footerAscii">███████╗ ██████╗ ███████╗
+██╔════╝██╔═══██╗██╔════╝
+█████╗  ██║   ██║█████╗
+██╔══╝  ██║   ██║██╔══╝
+███████╗╚██████╔╝██║
+╚══════╝ ╚═════╝ ╚═╝     </pre>
+      <div class="footer__row">
+        <span>© 2026 ARGUS · ForteBank Datathon 26</span>
         <span data-i18n="ft.local">100% локальная обработка · без распознавания лиц</span>
-        <a href="#top" data-scramble data-i18n="ft.top">Наверх ↑</a>
+        <a href="#top" data-scramble>$ logout ↑</a>
       </div>
     </footer>
   </main>
 
-  <!-- ============ SETTINGS DRAWER ============ -->
+  <!-- ============ SETTINGS (vim-like) ============ -->
   <div class="drawer" id="drawer" aria-hidden="true">
     <div class="drawer__backdrop" data-close></div>
-    <div class="drawer__panel">
-      <button class="drawer__close" data-close aria-label="Close">✕</button>
-      <p class="eyebrow">⚙ <span data-i18n="st.eyebrow">Подключение</span></p>
-      <h3 data-i18n="st.title">Бэкенд модели</h3>
-      <p class="muted" data-i18n="st.sub">Оставь URL пустым — будет DEMO-режим. Укажи адрес сервера с API из ТЗ — будет LIVE.</p>
-      <label class="field"><span>API URL</span><input id="apiUrl" type="url" placeholder="https://team.example.kz" autocomplete="off" /></label>
-      <label class="field"><span>X-API-Key</span><input id="apiKey" type="password" placeholder="••••••••" autocomplete="off" /></label>
-      <label class="field"><span data-i18n="st.poll">Интервал опроса, мс</span><input id="apiPoll" type="number" min="500" step="250" placeholder="1500" /></label>
-      <div class="drawer__actions">
-        <button class="btn btn--primary btn--sm" id="saveSettings" data-magnetic><span class="btn__fill"></span><span class="btn__label" data-i18n="st.save">Сохранить</span></button>
-        <button class="btn btn--ghost btn--sm" id="testSettings" data-magnetic><span class="btn__label" data-i18n="st.test">Проверить связь</span></button>
+    <div class="drawer__panel win">
+      <div class="win__bar"><span class="win__dots"><i></i><i></i><i></i></span><span>~/.argusrc</span><button class="drawer__close" data-close>[x]</button></div>
+      <div class="win__body">
+        <pre class="dim"># <span data-i18n="st.sub">Пустой URL → DEMO. Адрес сервера с API из ТЗ → LIVE.</span></pre>
+        <label class="field"><span>API_URL=</span><input id="apiUrl" type="url" placeholder="https://team.example.kz" autocomplete="off" spellcheck="false" /></label>
+        <label class="field"><span>X_API_KEY=</span><input id="apiKey" type="password" placeholder="********" autocomplete="off" /></label>
+        <label class="field"><span>POLL_MS=</span><input id="apiPoll" type="number" min="500" step="250" placeholder="1500" /></label>
+        <div class="drawer__actions">
+          <button class="tbtn tbtn--forte" id="saveSettings"><span>[ :wq ]</span> <span data-i18n="st.save">save</span></button>
+          <button class="tbtn" id="testSettings"><span>[ ping ]</span> <span data-i18n="st.test">test</span></button>
+        </div>
+        <pre class="drawer__status" id="settingsStatus"></pre>
       </div>
-      <p class="mono drawer__status" id="settingsStatus"></p>
     </div>
   </div>
 
-  <!-- ============ LIGHTBOX ============ -->
   <div class="lightbox" id="lightbox" aria-hidden="true">
     <img id="lightboxImg" alt="evidence frame" />
-    <span class="lightbox__cap mono" id="lightboxCap"></span>
-    <button class="lightbox__close" aria-label="Close">✕</button>
+    <span class="lightbox__cap" id="lightboxCap"></span>
   </div>
-
-  <div class="toast mono" id="toast"></div>
+  <div class="toast" id="toast"></div>
 
   <script type="module" src="/src/main.js"></script>
 </body>

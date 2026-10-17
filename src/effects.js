@@ -1,213 +1,222 @@
 import gsap from 'gsap';
-import * as THREE from 'three';
 
 export const fine = matchMedia('(pointer: fine)').matches;
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-export const mouse = { x: innerWidth / 2, y: innerHeight / 2, nx: 0, ny: 0 };
-addEventListener('pointermove', (e) => {
-  mouse.x = e.clientX; mouse.y = e.clientY;
-  mouse.nx = (e.clientX / innerWidth) * 2 - 1;
-  mouse.ny = -((e.clientY / innerHeight) * 2 - 1);
-});
+export const mouse = { x: innerWidth / 2, y: innerHeight / 2 };
+addEventListener('pointermove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
 
-// ---------------- cursor ----------------
+const css = (v) => getComputedStyle(document.body).getPropertyValue(v).trim();
+
+// ---------------- block cursor ----------------
 export function initCursor() {
   if (!fine) return;
   document.body.classList.add('has-cursor');
   const el = document.getElementById('cursor');
-  const ring = el.querySelector('.cursor__ring');
-  const dot = el.querySelector('.cursor__dot');
   const label = document.getElementById('cursorLabel');
-  const rx = gsap.quickTo(ring, 'x', { duration: 0.45, ease: 'power3' });
-  const ry = gsap.quickTo(ring, 'y', { duration: 0.45, ease: 'power3' });
-  addEventListener('pointermove', (e) => { rx(e.clientX); ry(e.clientY); gsap.set(dot, { x: e.clientX, y: e.clientY }); });
-  addEventListener('pointerdown', () => el.classList.add('is-down'));
-  addEventListener('pointerup', () => el.classList.remove('is-down'));
+  const x = gsap.quickTo(el, 'x', { duration: 0.12, ease: 'steps(3)' });
+  const y = gsap.quickTo(el, 'y', { duration: 0.12, ease: 'steps(3)' });
+  addEventListener('pointermove', (e) => { x(e.clientX); y(e.clientY); });
   document.addEventListener('pointerover', (e) => {
-    const t = e.target.closest('[data-cursor], a, button, input, label, .frame, .mark');
-    if (!t) { el.classList.remove('is-hover', 'is-text'); return; }
-    if (t.matches('input[type=url], input[type=password], input[type=number]')) { el.classList.add('is-text'); el.classList.remove('is-hover'); return; }
-    el.classList.remove('is-text');
-    el.classList.add('is-hover');
-    label.textContent = t.dataset.cursor || (t.classList.contains('frame') ? 'ZOOM' : t.classList.contains('mark') ? 'SEEK' : '');
-  });
-}
-
-// ---------------- magnetic ----------------
-export function initMagnetic(root = document) {
-  if (!fine) return;
-  root.querySelectorAll('[data-magnetic]').forEach((el) => {
-    if (el._mag) return; el._mag = 1;
-    const label = el.querySelector('.btn__label');
-    el.addEventListener('pointermove', (e) => {
-      const r = el.getBoundingClientRect();
-      const x = e.clientX - r.left - r.width / 2;
-      const y = e.clientY - r.top - r.height / 2;
-      gsap.to(el, { x: x * 0.35, y: y * 0.45, duration: 0.5, ease: 'power3' });
-      if (label) gsap.to(label, { x: x * 0.15, y: y * 0.2, duration: 0.5, ease: 'power3' });
-      el.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`);
-      el.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`);
-    });
-    el.addEventListener('pointerleave', () => {
-      gsap.to(el, { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, .35)' });
-      if (label) gsap.to(label, { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, .35)' });
-    });
-  });
-}
-
-// ---------------- 3D tilt + glare ----------------
-export function initTilt(root = document) {
-  if (!fine) return;
-  root.querySelectorAll('[data-tilt]').forEach((el) => {
-    if (el._tilt) return; el._tilt = 1;
-    gsap.set(el, { transformPerspective: 900 });
-    el.addEventListener('pointermove', (e) => {
-      const r = el.getBoundingClientRect();
-      const px = (e.clientX - r.left) / r.width;
-      const py = (e.clientY - r.top) / r.height;
-      gsap.to(el, { rotateY: (px - 0.5) * 14, rotateX: (0.5 - py) * 14, duration: 0.6, ease: 'power3' });
-      el.style.setProperty('--gx', `${px * 100}%`);
-      el.style.setProperty('--gy', `${py * 100}%`);
-    });
-    el.addEventListener('pointerleave', () => gsap.to(el, { rotateY: 0, rotateX: 0, duration: 1.2, ease: 'elastic.out(1, .4)' }));
+    const t = e.target.closest('[data-cursor], a, button, label, .frame, .mark, input');
+    el.classList.toggle('is-text', !!t && t.matches('input'));
+    el.classList.toggle('is-hover', !!t && !t.matches('input'));
+    label.textContent = t && !t.matches('input') ? (t.dataset.cursor || (t.classList.contains('frame') ? 'zoom' : t.classList.contains('mark') ? 'seek' : '')) : '';
   });
 }
 
 // ---------------- text scramble ----------------
-const GLYPHS = '!<>-_\\/[]{}—=+*^?#░▒▓█ABCDEFXYZ0123456789';
-export function scramble(el, to = el.textContent, dur = 0.7) {
+const GLYPHS = '!<>-_\\/[]{}=+*^?#$%&01アカサタナ░▒▓█';
+export function scramble(el, to = el.textContent, dur = 0.6) {
   const from = el.textContent;
   const len = Math.max(from.length, to.length);
   const q = Array.from({ length: len }, (_, i) => ({ to: to[i] || '', start: Math.random() * 0.4, end: 0.4 + Math.random() * 0.6 }));
   const o = { p: 0 };
-  gsap.killTweensOf(el._scr);
-  el._scr = o;
-  gsap.to(o, {
+  if (el._scr) el._scr.kill();
+  el._scr = gsap.to(o, {
     p: 1, duration: dur, ease: 'none',
-    onUpdate() {
-      el.textContent = q.map((c, i) => (o.p >= c.end ? c.to : o.p >= c.start ? GLYPHS[(Math.random() * GLYPHS.length) | 0] : from[i] || '')).join('');
-    },
+    onUpdate() { el.textContent = q.map((c, i) => (o.p >= c.end ? c.to : o.p >= c.start ? GLYPHS[(Math.random() * GLYPHS.length) | 0] : from[i] || '')).join(''); },
     onComplete() { el.textContent = to; },
   });
 }
 export function initScramble(root = document) {
   root.querySelectorAll('[data-scramble]').forEach((el) => {
     if (el._sb) return; el._sb = 1;
-    el.addEventListener('pointerenter', () => scramble(el, el.textContent, 0.5));
+    el.addEventListener('pointerenter', () => { if (!el._scr?.isActive()) scramble(el, el.textContent, 0.5); });
   });
 }
 
-// ---------------- split chars ----------------
-export function split(el) {
-  const text = el.textContent;
-  el.setAttribute('aria-label', text);
-  el.innerHTML = text.split(' ').map((w) =>
-    `<span class="wd" aria-hidden="true">${[...w].map((c) => `<span class="ch">${c}</span>`).join('')}</span>`
-  ).join(' ');
-  return el.querySelectorAll('.ch');
+// ---------------- typewriter ----------------
+export function typeText(el, text, speed = 28) {
+  return new Promise((res) => {
+    el.classList.add('is-typing');
+    if (reduced) { el.textContent = text; el.classList.remove('is-typing'); return res(); }
+    el.textContent = '';
+    let i = 0;
+    const tick = () => {
+      el.textContent = text.slice(0, ++i);
+      if (i < text.length) setTimeout(tick, speed + Math.random() * speed);
+      else { setTimeout(() => el.classList.remove('is-typing'), 600); res(); }
+    };
+    tick();
+  });
 }
 
-// ---------------- sparks (click burst) ----------------
+// ---------------- ascii bursts ----------------
 const parts = [];
-let sctx;
 export function initSparks() {
   const c = document.getElementById('sparks');
-  sctx = c.getContext('2d');
-  const size = () => { c.width = innerWidth * devicePixelRatio; c.height = innerHeight * devicePixelRatio; sctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); };
+  const ctx = c.getContext('2d');
+  const size = () => { c.width = innerWidth * devicePixelRatio; c.height = innerHeight * devicePixelRatio; ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); };
   size(); addEventListener('resize', size);
-  addEventListener('pointerdown', (e) => { if (!reduced) burst(e.clientX, e.clientY, 14); });
+  addEventListener('pointerdown', (e) => { if (!reduced) burst(e.clientX, e.clientY, 12); });
   gsap.ticker.add(() => {
-    sctx.clearRect(0, 0, innerWidth, innerHeight);
+    if (!parts.length) { ctx.clearRect(0, 0, innerWidth, innerHeight); return; }
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    ctx.font = '700 14px "JetBrains Mono", monospace';
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i];
-      p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.vx *= 0.98; p.life -= 0.02;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.vx *= 0.98; p.life -= 0.022;
       if (p.life <= 0) { parts.splice(i, 1); continue; }
-      sctx.globalAlpha = p.life;
-      sctx.fillStyle = p.c;
-      sctx.fillRect(p.x, p.y, p.s, p.s);
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.c;
+      ctx.shadowColor = p.c; ctx.shadowBlur = 8;
+      ctx.fillText(p.ch, p.x, p.y);
     }
-    sctx.globalAlpha = 1;
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
   });
 }
-export function burst(x, y, n = 40, colors = ['#c6ff3d', '#3df2ff', '#ff3b5c', '#ffffff']) {
+export function burst(x, y, n = 30, colors) {
+  colors ||= [css('--lime') || '#c6ff3d', '#ff2e7e', '#3df2ff'];
+  const chars = '01#*+x█▓░<>$';
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2;
-    const v = 2 + Math.random() * (n > 30 ? 10 : 5);
-    parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2, life: 1, s: 2 + Math.random() * 4, c: colors[(Math.random() * colors.length) | 0] });
+    const v = 2 + Math.random() * (n > 30 ? 9 : 5);
+    parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2, life: 1, ch: chars[(Math.random() * chars.length) | 0], c: colors[(Math.random() * colors.length) | 0] });
   }
 }
 
-// ---------------- hero WebGL shader ----------------
-export function initHeroGL() {
-  const canvas = document.getElementById('heroGL');
-  let renderer;
-  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true }); } catch { return; }
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-  const scene = new THREE.Scene();
-  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  const uniforms = {
-    uTime: { value: 0 },
-    uRes: { value: new THREE.Vector2() },
-    uMouse: { value: new THREE.Vector2() },
-    uAlarm: { value: 0 },
-  };
-  const mat = new THREE.ShaderMaterial({
-    uniforms,
-    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position, 1.0); }',
-    fragmentShader: /* glsl */ `
-      precision highp float;
-      varying vec2 vUv;
-      uniform float uTime; uniform vec2 uRes; uniform vec2 uMouse; uniform float uAlarm;
-      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-      float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.-2.*f);
-        return mix(mix(hash(i), hash(i+vec2(1,0)), u.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y); }
-      float fbm(vec2 p){ float v = 0., a = .5; for(int i=0;i<5;i++){ v += a*noise(p); p *= 2.02; a *= .5; } return v; }
-      void main(){
-        vec2 uv = (gl_FragCoord.xy - .5*uRes) / uRes.y;
-        vec2 m = uMouse * vec2(uRes.x/uRes.y, 1.) * .5;
-        float t = uTime * .12;
-        // domain-warped flow
-        vec2 q = vec2(fbm(uv*1.6 + t), fbm(uv*1.6 - t + 4.));
-        float f = fbm(uv*2.2 + q*1.8 + m*.6);
-        vec3 col = mix(vec3(.02,.02,.04), vec3(.05,.08,.03), f);
-        col += vec3(.78,1.,.24) * pow(f, 4.) * .9;
-        col += vec3(.24,.95,1.) * pow(q.x, 6.) * .35;
-        // iris following the mouse
-        vec2 eye = vec2(.55, 0.) + m*.18;
-        float d = length(uv - eye);
-        float ang = atan(uv.y - eye.y, uv.x - eye.x);
-        float ring = smoothstep(.36,.35,d) * smoothstep(.12,.14,d);
-        float fibers = .5 + .5*sin(ang*48. + fbm(vec2(ang*3., d*8.) + t*2.)*6.);
-        col += ring * mix(vec3(.24,.95,1.), vec3(.78,1.,.24), fibers) * .22 * (1. - d*1.8);
-        col += smoothstep(.13,.1,d) * vec3(1.,.23,.36) * .5;
-        col += smoothstep(.006,.0,abs(d-.36)) * vec3(.78,1.,.24) * .6;
-        // radar sweep
-        float sweep = fract((ang/6.2831) - uTime*.15);
-        col += smoothstep(.9,1.,sweep) * smoothstep(.75,.0,d) * vec3(.78,1.,.24) * .18;
-        // grid
-        vec2 g = abs(fract(uv*8.) - .5);
-        col += smoothstep(.49,.5,max(g.x,g.y)) * .035;
-        // alarm tint
-        col = mix(col, col*vec3(1.6,.4,.5) + vec3(.15,0.,.02), uAlarm);
-        gl_FragColor = vec4(col, 1.);
-      }`,
+// ---------------- matrix rain (background) ----------------
+export function initRain() {
+  const c = document.getElementById('rain');
+  const ctx = c.getContext('2d');
+  const FS = 16;
+  let cols = [], w, h;
+  const size = () => { w = c.width = innerWidth; h = c.height = innerHeight; cols = Array.from({ length: Math.ceil(w / FS) }, () => Math.random() * -h / FS); };
+  size(); addEventListener('resize', size);
+  const chars = 'アイウエオカキクケコサシスセソタチツテト0123456789ABCDEFКАССАНБРК$₸';
+  let last = 0;
+  gsap.ticker.add((t) => {
+    if (reduced || t - last < 0.06) return;
+    last = t;
+    ctx.fillStyle = 'rgba(6,7,8,0.12)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = `${FS}px "JetBrains Mono", monospace`;
+    const lime = css('--lime') || '#c6ff3d';
+    for (let i = 0; i < cols.length; i++) {
+      if (Math.random() > 0.55) continue; // sparse
+      const y = cols[i] * FS;
+      ctx.fillStyle = Math.random() < 0.04 ? '#ff2e7e' : lime;
+      ctx.globalAlpha = 0.18;
+      ctx.fillText(chars[(Math.random() * chars.length) | 0], i * FS, y);
+      cols[i] = y > h && Math.random() > 0.97 ? 0 : cols[i] + 1;
+    }
+    ctx.globalAlpha = 1;
   });
-  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat));
-  const resize = () => {
-    const r = canvas.parentElement.getBoundingClientRect();
-    renderer.setSize(r.width, r.height, false);
-    uniforms.uRes.value.set(r.width * renderer.getPixelRatio(), r.height * renderer.getPixelRatio());
-  };
-  resize(); addEventListener('resize', resize);
-  const sm = new THREE.Vector2();
+}
+
+// ---------------- radar eye ----------------
+export function initRadar() {
+  const wrap = document.getElementById('radarWrap');
+  const c = document.getElementById('radar');
+  const ctx = c.getContext('2d');
+  const tsEl = document.getElementById('radarTs');
+  const xyEl = document.getElementById('radarXY');
+  const objEl = document.getElementById('radarObj');
+  let S = 0;
+  const size = () => { const r = wrap.getBoundingClientRect(); S = r.width; c.width = S * devicePixelRatio; c.height = S * devicePixelRatio; ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); };
+  size(); addEventListener('resize', size);
+  const blips = [];
+  const LABELS = ['cashier', 'client', 'cash', 'tray', 'safe', 'hand', 'collector'];
   let visible = true;
-  new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(canvas);
-  gsap.ticker.add((time) => {
-    if (!visible) return;
-    sm.lerp(new THREE.Vector2(mouse.nx, mouse.ny), 0.05);
-    uniforms.uMouse.value.copy(sm);
-    uniforms.uTime.value = time;
-    renderer.render(scene, camera);
+  new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(c);
+  const look = { x: 0, y: 0 };
+  let alarm = 0;
+  const state = { alarm: (v) => gsap.to({ v: alarm }, { v, duration: 0.3, onUpdate() { alarm = this.targets()[0].v; } }) };
+
+  gsap.ticker.add((t) => {
+    if (!visible || !S) return;
+    const lime = css('--lime') || '#c6ff3d';
+    const cx = S / 2, cy = S / 2, R = S * 0.46;
+    ctx.clearRect(0, 0, S, S);
+    // mouse look
+    const r = c.getBoundingClientRect();
+    const dx = mouse.x - (r.left + cx), dy = mouse.y - (r.top + cy);
+    const d = Math.hypot(dx, dy) || 1;
+    const k = Math.min(1, d / 400);
+    look.x += ((dx / d) * k * R * 0.22 - look.x) * 0.08;
+    look.y += ((dy / d) * k * R * 0.22 - look.y) * 0.08;
+
+    ctx.lineWidth = 1;
+    // rings + crosshair
+    ctx.strokeStyle = 'rgba(198,255,61,.14)';
+    for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.arc(cx, cy, (R * i) / 4, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
+    // ticks
+    ctx.strokeStyle = lime; ctx.globalAlpha = 0.6;
+    for (let i = 0; i < 72; i++) {
+      const a = (i / 72) * Math.PI * 2, l = i % 6 ? 6 : 14;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); ctx.lineTo(cx + Math.cos(a) * (R - l), cy + Math.sin(a) * (R - l)); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // outer glowing arc (like the boot screen)
+    ctx.shadowColor = lime; ctx.shadowBlur = 16; ctx.strokeStyle = lime; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, cy, R * 0.98, t * 0.4, t * 0.4 + Math.PI * 1.3); ctx.stroke();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = '#ff2e7e'; ctx.shadowColor = '#ff2e7e';
+    ctx.beginPath(); ctx.arc(cx, cy, R * 0.9, -t * 0.7, -t * 0.7 + Math.PI * 0.35); ctx.stroke();
+    ctx.shadowBlur = 0;
+    // sweep
+    const sa = t * 1.6;
+    const g = ctx.createConicGradient ? ctx.createConicGradient(sa - Math.PI * 0.35, cx, cy) : null;
+    if (g) {
+      g.addColorStop(0, 'rgba(198,255,61,0)'); g.addColorStop(0.0972, alarm > 0.5 ? 'rgba(255,46,126,.35)' : 'rgba(198,255,61,.28)'); g.addColorStop(0.0973, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.strokeStyle = lime; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(sa) * R, cy + Math.sin(sa) * R); ctx.stroke();
+    // spawn blips
+    if (Math.random() < 0.035 && blips.length < 7) {
+      const a = Math.random() * Math.PI * 2, rr = R * (0.3 + Math.random() * 0.6);
+      blips.push({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr, life: 1, bad: Math.random() < 0.18, label: LABELS[(Math.random() * LABELS.length) | 0], conf: (0.6 + Math.random() * 0.39).toFixed(2) });
+    }
+    ctx.font = '10px "JetBrains Mono", monospace';
+    for (let i = blips.length - 1; i >= 0; i--) {
+      const b = blips[i]; b.life -= 0.004;
+      if (b.life <= 0) { blips.splice(i, 1); continue; }
+      const col = b.bad ? '#ff2e7e' : '#3df2ff';
+      ctx.globalAlpha = Math.min(1, b.life * 2);
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 10;
+      const s = 14 + (1 - b.life) * 4;
+      ctx.strokeRect(b.x - s / 2, b.y - s / 2, s, s);
+      ctx.fillRect(b.x - 2, b.y - 2, 4, 4);
+      ctx.shadowBlur = 0;
+      ctx.fillText(`${b.bad ? '! ' : ''}${b.label} ${b.conf}`, b.x + s / 2 + 4, b.y - s / 2);
+    }
+    ctx.globalAlpha = 1;
+    // the eye: cyan iris + raspberry pupil, follows mouse
+    const ex = cx + look.x, ey = cy + look.y;
+    ctx.strokeStyle = '#3df2ff'; ctx.shadowColor = '#3df2ff'; ctx.shadowBlur = 14; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(ex, ey, R * 0.2, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+    for (let i = 0; i < 36; i++) { const a = (i / 36) * Math.PI * 2 + t * 0.2; ctx.beginPath(); ctx.moveTo(ex + Math.cos(a) * R * 0.11, ey + Math.sin(a) * R * 0.11); ctx.lineTo(ex + Math.cos(a) * R * 0.19, ey + Math.sin(a) * R * 0.19); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    const pr = R * (0.085 + Math.sin(t * 3) * 0.008 + alarm * 0.03);
+    ctx.fillStyle = '#ff2e7e'; ctx.shadowColor = '#ff2e7e'; ctx.shadowBlur = 24;
+    ctx.beginPath(); ctx.arc(ex, ey, pr, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex - pr * 0.35, ey - pr * 0.35, pr * 0.22, 0, Math.PI * 2); ctx.fill();
+
+    tsEl.textContent = `${String(Math.floor(t / 60) % 60).padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+    xyEl.textContent = `x=${String(Math.round(mouse.x)).padStart(4, '0')} y=${String(Math.round(mouse.y)).padStart(4, '0')}`;
+    objEl.textContent = `objects: ${blips.length} · alerts: ${blips.filter((b) => b.bad).length}`;
   });
-  return uniforms;
+  return state;
 }

@@ -6,7 +6,7 @@ Web UI and API skeleton for **ForteBank Datathon 26**. You upload a `.mov` from 
 
 ```
 argus/
-├─ index.html, src/          ← frontend (Vite + GSAP + Three.js + Lenis)
+├─ index.html, src/          ← frontend (Vite + GSAP + Lenis, terminal UI with ForteBank raspberry accents)
 │  ├─ src/api.js             ← API client (LIVE) + in-browser DEMO
 │  ├─ src/data.js            ← violation classes + regulatory sources (EDIT ME)
 │  └─ src/i18n.js            ← RU / EN strings
@@ -58,4 +58,4 @@ Every request needs the `X-API-Key` header. The server also reports `progress` (
 - [ ] Do not commit the dataset or the test videos (`.gitignore` already excludes `*.mov`/`*.zip`)
 - [ ] Processing must finish in under 5 minutes, and everything runs locally with no cloud AI
 
-Easter egg: ↑↑↓↓←→←→BA
+Keys: `1`–`5` jump to sections, `/` opens the built-in shell (`help`, `connect <url> <key>`, `theme forte`, …). After a result: `r` new, `s` save JSON, `y` copy JSON.
