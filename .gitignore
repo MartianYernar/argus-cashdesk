@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.local
+__pycache__/
+*.pyc
+.venv/
+backend/jobs/
+backend/uploads/
+# dataset must never be committed or published
+*.mov
+*.mp4
+*.zip
+open/
