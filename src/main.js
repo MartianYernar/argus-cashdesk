@@ -1,6 +1,6 @@
 import { LEGAL_CATALOG } from './legal.js';
 import './style.css';
-import { bar, reduced } from './effects.js';
+import { reduced } from './effects.js';
 import { initI18n, toggleLang, onLang, t, pick } from './i18n.js';
 import { RULES, ruleById, typeByName } from './data.js';
 import { analyze, getSettings, saveSettings, isLive, ping } from './api.js';
@@ -11,8 +11,8 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (s) => { s = Math.max(0, s || 0); const m = Math.floor(s / 60); return `${String(m).padStart(2, '0')}:${(s % 60).toFixed(1).padStart(4, '0')}`; };
 const hhmm = (ts) => new Date(ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-const dayKey = (ts) => new Date(ts).toISOString().slice(0, 10);
-const isVideo = (f) => /video|quicktime/.test(f.type) || /\.(mov|mp4|m4v|webm|avi|mkv)$/i.test(f.name);
+const dayKey = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const isVideo = (f) => /\.(mov|mp4|m4v|webm|avi|mkv)$/i.test(f.name);
 
 // =========================================================
 //  state
@@ -39,7 +39,11 @@ function review(j) {
 // =========================================================
 //  boot + landing
 // =========================================================
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.endsWith('.trycloudflare.com')) {
+  await new Promise(resolve => { const script = document.createElement('script'); script.src = '/api/local-config.js'; script.onload = script.onerror = resolve; document.head.append(script); });
+}
 initI18n();
+$('.lang-on').textContent = document.documentElement.lang.toUpperCase(); $('.lang-off').textContent = document.documentElement.lang === 'ru' ? 'EN' : 'RU';
 $('#sources').innerHTML = RULES.map((r) => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(pick(r.meta).split('·')[0].trim())}</a>`).join(' · ');
 
 $('#enterBtn').addEventListener('click', (e) => { e.preventDefault(); toApp(); });
@@ -82,7 +86,7 @@ async function run() {
       });
       j.result = res; j.status = 'done'; j.elapsed = (performance.now() - t0) / 1000; j.doneAt = Date.now();
     } catch (err) {
-      if (err.name === 'AbortError') { j.status = 'failed'; j.error = 'cancelled by reviewer'; }
+      if (err.name === 'AbortError') { j.status = 'failed'; j.error = t('cancelled'); }
       else { j.status = 'failed'; j.error = err.message || String(err); }
     }
     delete j.abort;
@@ -91,7 +95,7 @@ async function run() {
     renderList(); renderStats();
   }
   running = false;
-  if (jobs.length && !jobs.some((x) => review(x) === 'pend')) toast(t('allDone'));
+  if (jobs.length && jobs.every(x => x.status === 'done') && !jobs.some((x) => review(x) === 'pend')) toast(t('allDone'));
 }
 
 // =========================================================
@@ -119,12 +123,12 @@ function itemHTML(j) {
   if (j.status === 'done' && n) meta.push(t('events', n));
   if (j.status === 'done' && j.elapsed) meta.push(`${j.elapsed.toFixed(1)}s`);
   return `<span class="qitem__name">${esc(j.name)}</span><span class="qitem__st ${cls}">${r === 'proc' ? (j.progress == null ? '…' : `${Math.round(j.progress)}%`) : label}</span>
-    <span class="qitem__meta">${meta.join(' · ')}</span>${r === 'proc' || r === 'queued' ? `<span class="qitem__bar"><i style="width:${j.progress}%"></i></span>` : ''}`;
+    <span class="qitem__meta">${meta.join(' · ')}</span>${r === 'proc' || r === 'queued' ? `<span class="qitem__bar"><i style="width:${j.progress == null ? 40 : j.progress}%"></i></span>` : ''}`;
 }
 function renderList() {
   const ul = $('#qList');
   const vs = visible();
-  ul.innerHTML = vs.length ? vs.map((j) => `<li tabindex="0" role="button" aria-pressed="${j.id === selId}" class="qitem${j.id === selId ? ' is-sel' : ''}" data-id="${j.id}">${itemHTML(j)}</li>`).join('') : `<li class="qempty">${t('emptyQueue')}</li>`;
+  ul.innerHTML = vs.length ? vs.map((j) => `<li tabindex="0" role="button" aria-pressed="${j.id === selId}" class="qitem${j.id === selId ? ' is-sel' : ''}" data-id="${j.id}">${itemHTML(j)}</li>`).join('') : `<li class="qempty">${t(search || filter !== 'all' ? 'noMatches' : 'emptyQueue')}</li>`;
 }
 function updateItem(j) { const li = $(`.qitem[data-id="${j.id}"]`); if (li) li.innerHTML = itemHTML(j); }
 $('#qList').addEventListener('click', (e) => { const li = e.target.closest('.qitem'); if (li) select(li.dataset.id); });
@@ -136,7 +140,7 @@ $('#qFilters').addEventListener('click', (e) => { const b = e.target.closest('bu
 $('#qSearch').addEventListener('input', (e) => { search = e.target.value.trim().toLowerCase(); renderList(); });
 $('#clearBtn').addEventListener('click', async () => {
   if (!confirm(t('clearAsk'))) return;
-  jobs.filter((j) => j.status === 'proc').forEach((j) => j.abort?.abort());
+  jobs.filter(j => j.status !== 'proc' && j.status !== 'queued').forEach(j => j.url && URL.revokeObjectURL(j.url));
   jobs = jobs.filter((j) => j.status === 'proc' || j.status === 'queued');
   await clearJobs(); jobs.forEach(putJob);
   selId = null; renderAll();
@@ -219,7 +223,7 @@ function setPhase(ph) {
 }
 function setProgress(p) { const waiting = p == null; $('#procPct').textContent = waiting ? '…' : Math.round(p); $('#procUnit').hidden = waiting; $('#procBar').classList.toggle('is-indeterminate', waiting); $('#procBar').style.width = waiting ? '40%' : `${Math.max(0, Math.min(100, p))}%`; }
 function logLine([time, msg, cls]) { const el = $('#log'); el.insertAdjacentHTML('beforeend', `<span class="${cls || ''}">[${time}] ${esc(msg)}</span>\n`); el.scrollTop = el.scrollHeight; }
-$('#cancelBtn').addEventListener('click', () => { const j = sel(); if (j?.status === 'proc') j.abort?.abort(); else if (j?.status === 'queued') { j.status = 'failed'; j.error = 'cancelled by reviewer'; putJob(j); renderAll(); } });
+$('#cancelBtn').addEventListener('click', () => { const j = sel(); if (j?.status === 'proc') j.abort?.abort(); else if (j?.status === 'queued') { j.status = 'failed'; j.error = t('cancelled'); putJob(j); renderAll(); } });
 $('#retryBtn').addEventListener('click', () => {
   const j = sel(); if (!j) return;
   if (!j.file) { $('#reattachInput').click(); return; }
@@ -342,6 +346,7 @@ function saveJSON() {
 function delSel() {
   const j = sel(); if (!j) return;
   j.abort?.abort();
+  if (j.url) URL.revokeObjectURL(j.url);
   const vs = visible(); const i = vs.findIndex((x) => x.id === j.id);
   jobs = jobs.filter((x) => x.id !== j.id); deleteJob(j.id);
   selId = (vs[i + 1] || vs[i - 1])?.id || null;
@@ -352,6 +357,7 @@ function delSel() {
 function reattach(file) {
   const j = sel(); if (!j || !file) return;
   if (file.name !== j.name) { toast(t('wrongFile')); return; }
+  if (j.url) URL.revokeObjectURL(j.url);
   j.file = file; j.url = URL.createObjectURL(file);
   if (j.status === 'failed') { j.status = 'queued'; j.error = null; putJob(j); run(); }
   renderViewer(false);
@@ -404,20 +410,64 @@ $('#bigDrop').addEventListener('click', () => $('#fileInput').click());
 //  settings, help, misc
 // =========================================================
 const drawer = $('#drawer'), help = $('#helpModal');
-function refreshMode() { const live = isLive(); $('#modePill').classList.toggle('is-live', live); $('#modeLabel').textContent = live ? t('liveMode') : t('demoMode'); $('#modePill').title = live ? getSettings().url : 'browser demo'; }
-refreshMode();
-$('#modePill').addEventListener('click', () => {
+let modeVersion = 0;
+async function refreshMode() {
+  const version = ++modeVersion, live = isLive(), pill = $('#modePill'), notice = $('#connectionNotice');
+  pill.classList.remove('is-live'); notice.className = 'connection-notice';
+  $('#modeLabel').textContent = live ? t('connecting') : t('demoMode');
+  pill.title = live ? getSettings().url : t('demoTitle');
+  $('#connectionTitle').textContent = live ? t('connecting') : t('demoTitle');
+  $('#connectionText').textContent = live ? t('connectingText') : t('demoText');
+  $('#connectionSettings').firstChild.textContent = t('configure') + ' ';
+  if (!live) return;
+  const ok = await ping();
+  if (version !== modeVersion) return;
+  pill.classList.toggle('is-live', ok); notice.classList.toggle('is-ready', ok);
+  $('#modeLabel').textContent = ok ? t('liveMode') : t('offline');
+  $('#connectionTitle').textContent = ok ? t('readyTitle') : t('offlineTitle');
+  $('#connectionText').textContent = ok ? t('readyText') : t('offlineText');
+}
+let lastFocus;
+function openModal(modal) {
+  lastFocus = document.activeElement; modal.classList.add('is-open'); modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('has-modal');
+  (modal.querySelector('input') || modal.querySelector('button'))?.focus();
+}
+function closeModal(modal) {
+  modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('has-modal'); lastFocus?.focus();
+}
+function openSettings() {
   const s = getSettings(); $('#apiUrl').value = s.url; $('#apiKey').value = s.key; $('#apiPoll').value = s.poll; $('#settingsStatus').textContent = '';
-  drawer.classList.add('is-open'); setTimeout(() => $('#apiUrl').focus(), 50);
-});
-const saveForm = () => { saveSettings({ url: $('#apiUrl').value.trim(), key: $('#apiKey').value.trim(), poll: $('#apiPoll').value }); refreshMode(); };
-$('#saveSettings').addEventListener('click', () => { saveForm(); toast(t('saved')); drawer.classList.remove('is-open'); });
+  openModal(drawer);
+}
+refreshMode();
+$('#modePill').addEventListener('click', openSettings);
+$('#connectionSettings').addEventListener('click', openSettings);
+const saveForm = () => {
+  const url = $('#apiUrl').value.trim().replace(/\/+$/, '');
+  if (url) {
+    try { const parsed = new URL(url); if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error(); }
+    catch { $('#settingsStatus').textContent = t('invalidUrl'); $('#apiUrl').focus(); return false; }
+    if (location.protocol === 'https:' && url.startsWith('http:')) { $('#settingsStatus').textContent = t('httpsRequired'); return false; }
+  }
+  saveSettings({ url, key: $('#apiKey').value.trim(), poll: Math.max(500, Math.min(10000, Number($('#apiPoll').value) || 1500)) }); refreshMode(); return true;
+};
+$('#saveSettings').addEventListener('click', () => { if (!saveForm()) return; toast(t('saved')); closeModal(drawer); });
 $('#testSettings').addEventListener('click', async () => {
-  saveForm(); const st = $('#settingsStatus'); st.className = 'status'; st.textContent = 'Проверяем соединение…';
-  const ok = await ping(); st.textContent = `${ok ? t('testOk') : t('testBad')}`; st.classList.add(ok ? 'ok' : 'bad');
+  if (!saveForm()) return;
+  const st = $('#settingsStatus'), button = $('#testSettings'); button.disabled = true; st.className = 'status'; st.textContent = t('connecting');
+  try { const ok = await ping(); st.textContent = ok ? t('testOk') : t('testBad'); st.classList.add(ok ? 'ok' : 'bad'); }
+  finally { button.disabled = false; }
 });
-$('#helpBtn').addEventListener('click', () => help.classList.add('is-open'));
-$$('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('.modal').classList.remove('is-open')));
+$('#helpBtn').addEventListener('click', () => openModal(help));
+$$('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.closest('.modal'))));
+addEventListener('keydown', e => {
+  const modal = $('.modal.is-open'); if (!modal || e.key !== 'Tab') return;
+  const fields = [...modal.querySelectorAll('button,input,a[href]')].filter(el => !el.disabled && el.getClientRects().length);
+  if (e.shiftKey && document.activeElement === fields[0]) { e.preventDefault(); fields.at(-1).focus(); }
+  else if (!e.shiftKey && document.activeElement === fields.at(-1)) { e.preventDefault(); fields[0].focus(); }
+});
 $('#lightbox').addEventListener('click', () => $('#lightbox').classList.remove('is-open'));
 $('#langToggle').addEventListener('click', toggleLang);
 onLang((lang) => {
@@ -435,8 +485,8 @@ function toast(msg) { const el = $('#toast'); el.textContent = msg; el.classList
 // =========================================================
 addEventListener('keydown', (e) => {
   if (document.body.classList.contains('is-booting')) return;
-  if (e.key === 'Escape') { $$('.modal.is-open').forEach((m) => m.classList.remove('is-open')); $('#lightbox').classList.remove('is-open'); document.activeElement?.blur(); return; }
-  if (e.target.matches('input, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') { $$('.modal.is-open').forEach(closeModal); $('#lightbox').classList.remove('is-open'); return; }
+  if (e.target.closest('input, textarea, button, a, label, [role=button]') || e.ctrlKey || e.metaKey || e.altKey) return;
   if ($('.modal.is-open')) return;
   const inApp = $('#app').getBoundingClientRect().top < innerHeight / 2;
   if (!inApp) { if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); toApp(); } return; }
@@ -445,7 +495,7 @@ addEventListener('keydown', (e) => {
   const act = {
     u: () => $('#fileInput').click(), U: () => $('#fileInput').click(),
     j: () => step(1), k: () => step(-1), ArrowDown: () => step(1), ArrowUp: () => step(-1), n: nextPending,
-    '/': () => $('#qSearch').focus(), '?': () => help.classList.add('is-open'),
+    '/': () => $('#qSearch').focus(), '?': () => openModal(help),
     e: exportCSV, s: () => res && saveJSON(), Delete: delSel,
     ' ': () => res && j.url && (v.paused ? v.play() : v.pause()),
     ArrowRight: () => res && (v.currentTime += 2), ArrowLeft: () => res && (v.currentTime -= 2),
@@ -462,7 +512,7 @@ function renderAll() { renderList(); renderViewer(false); renderStats(); }
 
 (async () => {
   const stored = await allJobs();
-  jobs = stored.map((j) => (j.status === 'proc' || j.status === 'queued' ? { ...j, status: 'failed', error: 'interrupted by page reload — re-attach the file to retry' } : j))
+  jobs = stored.map((j) => (j.status === 'proc' || j.status === 'queued' ? { ...j, status: 'failed', error: t('interrupted') } : j))
     .sort((a, b) => b.createdAt - a.createdAt);
   jobs.forEach((j) => { j.decisions ||= {}; j.notes ||= {}; });
   selId = jobs.find((j) => review(j) === 'pend')?.id || jobs[0]?.id || null;
