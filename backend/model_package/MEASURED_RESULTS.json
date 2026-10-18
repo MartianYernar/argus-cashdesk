@@ -1,0 +1,78 @@
+{
+  "scope": "Saved recovery results; no new inference run",
+  "counts": {
+    "total": 8,
+    "processed": 8,
+    "correct": 6,
+    "misses": 2,
+    "false_alarms": 0,
+    "failed": 0,
+    "pending": 0
+  },
+  "clips": [
+    {
+      "video": "X-1",
+      "expected": "violation",
+      "predicted": "no_violation",
+      "seconds": 155.969,
+      "event_count": 0,
+      "result": "miss"
+    },
+    {
+      "video": "X-14",
+      "expected": "no_violation",
+      "predicted": "no_violation",
+      "seconds": 256.039,
+      "event_count": 0,
+      "result": "correct"
+    },
+    {
+      "video": "X-2",
+      "expected": "violation",
+      "predicted": "no_violation",
+      "seconds": 55.817,
+      "event_count": 0,
+      "result": "miss"
+    },
+    {
+      "video": "X-21",
+      "expected": "no_violation",
+      "predicted": "no_violation",
+      "seconds": 115.67,
+      "event_count": 0,
+      "result": "correct"
+    },
+    {
+      "video": "X-3",
+      "expected": "no_violation",
+      "predicted": "no_violation",
+      "seconds": 75.071,
+      "event_count": 0,
+      "result": "correct"
+    },
+    {
+      "video": "X-32",
+      "expected": "violation",
+      "predicted": "violation",
+      "seconds": 97.071,
+      "event_count": 1,
+      "result": "correct"
+    },
+    {
+      "video": "X-46",
+      "expected": "violation",
+      "predicted": "violation",
+      "seconds": 153.453,
+      "event_count": 1,
+      "result": "correct"
+    },
+    {
+      "video": "X-5",
+      "expected": "no_violation",
+      "predicted": "no_violation",
+      "seconds": 227.041,
+      "event_count": 0,
+      "result": "correct"
+    }
+  ]
+}

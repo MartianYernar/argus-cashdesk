@@ -12,3 +12,6 @@ backend/uploads/
 *.mp4
 *.zip
 open/
+
+.runtime/
+backend/audits/

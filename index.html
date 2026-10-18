@@ -5,68 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ARGUS — проверка кассовой дисциплины</title>
   <meta name="description" content="ARGUS — локальный AI-сервис для ежедневной проверки видеозаписей кассовых операций: вердикт, таймкод, кадр-доказательство и норма РК." />
-  <meta name="theme-color" content="#000000" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23000'/%3E%3Ctext x='8' y='44' font-family='monospace' font-size='34' font-weight='700' fill='%23c6ff3d'%3E%3E%3C/text%3E%3Crect x='34' y='38' width='20' height='8' fill='%23d4145a'/%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#f4f3ee" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='20' fill='%23243c35'/%3E%3Ctext x='17' y='47' font-family='Georgia' font-size='53' fill='%23e7e9b9'%3Ea%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=VT323&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 </head>
-<body class="is-booting">
+<body>
 
-  <!-- ============ BOOT (once per session) ============ -->
-  <div class="boot" id="boot" aria-hidden="true">
-    <pre class="boot__log" id="bootLog"></pre>
-    <div class="boot__bar"><span id="bootBar"></span> <b id="bootPct">0%</b></div>
-    <div class="boot__skip">press any key to skip_</div>
-  </div>
-
-  <!-- ============ LANDING ============ -->
   <section class="landing" id="top">
-    <div class="term">
-      <pre class="term__log" id="heroLog"></pre>
-      <pre class="ascii" id="ascii" aria-label="ARGUS"> █████╗ ██████╗  ██████╗ ██╗   ██╗███████╗
-██╔══██╗██╔══██╗██╔════╝ ██║   ██║██╔════╝
-███████║██████╔╝██║  ███╗██║   ██║███████╗
-██╔══██║██╔══██╗██║   ██║██║   ██║╚════██║
-██║  ██║██║  ██║╚██████╔╝╚██████╔╝███████║
-╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝</pre>
-      <p class="term__tag"><span class="forte-chip">ForteBank × Datathon 26</span> <span class="dim">v1.0 · local · cloud=off · faces=off</span></p>
-      <div class="prompt"><span class="ps1">forte@argus</span>:<span class="ps2">~</span>$ <span class="typed" id="heroCmd">./argus --help</span></div>
-      <div class="term__help" id="heroHelp">
-        <p data-i18n="hero.sub">Сто глаз на каждой кассе. ARGUS просматривает записи кассовых операций, находит признаки нарушений кассовой дисциплины и показывает кадр-доказательство, таймкод и норму РК — за секунды, а не часы.</p>
-        <pre class="usage"><span class="k">USAGE</span>
-  <span data-i18n="hero.u1">перетащи .mov в рабочую область     → вердикт, таймкод, кадры, норма</span>
-  <span data-i18n="hero.u2">подтверди или отклони каждое событие → отчёт за день в CSV</span>
-
-<span class="k">TODAY</span>
-  <span id="heroToday">0 checked · 0 flagged · 0 pending review</span></pre>
-        <a href="#app" class="tbtn tbtn--forte" id="enterBtn"><span>[ ENTER ]</span> <span data-i18n="hero.cta">открыть рабочую область</span></a>
-      </div>
-    </div>
+    <div class="intro-brand"><span class="brand-symbol">a</span><span>ARGUS <small>Контроль кассовых операций</small></span></div>
+    <div class="intro-body"><div><p class="eyebrow" data-i18n="hero.eyebrow">РАБОЧЕЕ МЕСТО СОТРУДНИКА БЕЗОПАСНОСТИ</p>
+    <h1 data-i18n="hero.title">Внимание к деталям.<br><em>Спокойствие в работе.</em></h1>
+    <p class="intro-copy" data-i18n="hero.sub">Загрузите запись с камеры. ARGUS отметит моменты, на которые стоит обратить внимание. Вы проверите детали и примете решение.</p>
+    <a href="#app" class="tbtn tbtn--forte" id="enterBtn"><span data-i18n="hero.cta">Начать проверку</span><span>↗</span></a></div>
+    <div class="intro-side"><div class="orbit" aria-hidden="true"><span></span><i></i><b>а</b></div><p>ARGUS / FORTEBANK</p><span data-i18n="hero.side">Технологии замечают.<br>Решение принимаете вы.</span></div></div>
+    <div class="intro-bottom"><span data-i18n="hero.privacy">Локальная обработка · Без распознавания лиц</span><span id="heroToday"></span></div>
   </section>
 
   <!-- ============ WORKSPACE ============ -->
   <main class="app" id="app">
     <header class="bar">
-      <a href="#top" class="bar__logo"><span class="ok">&gt;</span>argus<span class="blinkc"></span></a>
+      <a href="#top" class="bar__logo"><span class="brand-symbol">a</span> ARGUS</a>
       <div class="bar__stats" id="dayStats"></div>
       <div class="bar__right">
-        <button class="bbtn" id="exportBtn" title="E"><span class="dim">[E]</span> <span data-i18n="bar.export">отчёт CSV</span></button>
-        <button class="bbtn" id="helpBtn" title="?"><span class="dim">[?]</span></button>
+        <button class="bbtn" id="exportBtn" title="E"><span>↓</span> <span data-i18n="bar.export">отчёт CSV</span></button>
+        <button class="bbtn" id="helpBtn" title="?"><span data-i18n="bar.help">Помощь</span></button>
         <button class="bbtn" id="langToggle"><span class="lang-on">RU</span><span class="dim">/</span><span class="lang-off">EN</span></button>
         <button class="bbtn bbtn--mode" id="modePill"><i class="dot"></i><span id="modeLabel">DEMO</span></button>
       </div>
     </header>
 
-    <div class="ws">
+    <div class="workspace-title"><div><p class="eyebrow" data-i18n="ws.eyebrow">ОБЗОР И ПРОВЕРКА</p><h2 data-i18n="ws.title">Рабочая область</h2></div><p data-i18n="ws.sub">Каждое событие — под вашим контролем</p></div><div id="dayStatsCards" class="stats-cards"></div><div class="ws">
       <!-- queue -->
-      <aside class="queue">
-        <label class="qdrop" id="drop">
+      <aside class="queue"><div class="queue-heading"><h3 data-i18n="q.title">Видеозаписи</h3><span data-i18n="q.subtitle">Ваша очередь проверки</span></div>
+        <label class="qdrop" id="drop" tabindex="0">
           <input type="file" id="fileInput" accept=".mov,video/quicktime,video/*" multiple hidden />
-          <span class="ok">+</span> <span data-i18n="q.add">добавить видео</span> <span class="dim">· drop / U</span>
+          <span class="ok">+</span> <span data-i18n="q.add">добавить видео</span>
         </label>
         <div class="qtools">
-          <input class="qsearch" id="qSearch" placeholder="/ search" spellcheck="false" autocomplete="off" />
+          <input class="qsearch" id="qSearch" placeholder="Поиск по названию…" aria-label="Поиск видеозаписей" spellcheck="false" autocomplete="off" />
           <div class="qfilters" id="qFilters">
             <button data-f="all" class="is-on" data-i18n="f.all">все</button>
             <button data-f="pending" data-i18n="f.pending">к проверке</button>
@@ -82,18 +60,12 @@
       <section class="viewer" id="viewer">
         <!-- empty -->
         <div class="vstate is-active" data-v="empty">
-          <label class="bigdrop" id="bigDrop">
-<pre class="bigdrop__art">┌──────────────────────────────────────────┐
-│                                          │
-│                  ┌───┐                   │
-│                  │ ↑ │                   │
-│                  └───┘                   │
-│                                          │
-└──────────────────────────────────────────┘</pre>
-            <b data-i18n="v.drop">DROP .MOV FILES</b>
-            <span class="dim" data-i18n="v.dropsub">можно сразу несколько — они встанут в очередь</span>
-          </label>
-          <pre class="keys dim" id="keysHint"></pre>
+          <label class="bigdrop" id="bigDrop" role="button" tabindex="0">
+<span class="upload-icon" aria-hidden="true">↑</span><span class="eyebrow" data-i18n="v.start">НАЧНИТЕ С ВИДЕОЗАПИСИ</span>
+            <b data-i18n="v.drop">Добавьте запись с камеры</b>
+            <span class="dim" data-i18n="v.dropsub">Перетащите видео сюда или нажмите, чтобы выбрать файл. Можно добавить несколько записей.</span>
+          <span class="upload-cta" data-i18n="v.choose">Выбрать видео <span>＋</span></span><span class="upload-formats">MOV · MP4 · WEBM</span></label>
+          <div class="workflow"><div><b>01</b><strong data-i18n="step.1">Добавьте видео</strong><p data-i18n="step.1sub">Запись с кассовой камеры</p></div><div><b>02</b><strong data-i18n="step.2">Посмотрите события</strong><p data-i18n="step.2sub">Кадры, время и основание</p></div><div><b>03</b><strong data-i18n="step.3">Примите решение</strong><p data-i18n="step.3sub">Подтвердите или отклоните</p></div></div><pre hidden id="keysHint"></pre>
         </div>
 
         <!-- processing -->
@@ -102,15 +74,15 @@
           <div class="proc">
             <div class="proc__video"><video id="procVideo" muted playsinline loop></video><div class="proc__scan"></div></div>
             <div>
-              <pre class="pbar"><span id="procBar"></span> <b id="procPct">0</b>%</pre>
+              <pre class="pbar"><span id="procBar"></span> <b id="procPct">0</b><span id="procUnit">%</span></pre>
               <ul class="units" id="phases">
-                <li data-phase="upload"><span class="u">[      ]</span> upload</li>
-                <li data-phase="queue"><span class="u">[      ]</span> queue</li>
-                <li data-phase="frames"><span class="u">[      ]</span> frames.extract</li>
-                <li data-phase="detect"><span class="u">[      ]</span> vision.detect</li>
-                <li data-phase="rules"><span class="u">[      ]</span> rules.match</li>
+                <li data-phase="upload"><span class="u">○</span> Загрузка видео</li>
+                <li data-phase="queue"><span class="u">○</span> Ожидание обработки</li>
+                <li data-phase="frames"><span class="u">○</span> Подготовка кадров</li>
+                <li data-phase="detect"><span class="u">○</span> Поиск событий</li>
+                <li data-phase="rules"><span class="u">○</span> Проверка правил</li>
               </ul>
-              <button class="tbtn" id="cancelBtn"><span>[ ^C ]</span> <span data-i18n="v.cancel">отменить</span></button>
+              <button class="tbtn" id="cancelBtn"> <span data-i18n="v.cancel">отменить</span></button>
             </div>
           </div>
           <pre class="log" id="log"></pre>
@@ -123,8 +95,8 @@
             <b id="rName">—</b>
             <span class="dim" id="rMeta"></span>
             <span class="vhead__right">
-              <button class="bbtn" id="jsonBtn"><span class="dim">[S]</span> json</button>
-              <button class="bbtn" id="delBtn"><span class="dim">[Del]</span></button>
+              <button class="bbtn" id="jsonBtn">Скачать JSON</button>
+              <button class="bbtn" id="delBtn">Удалить</button>
             </span>
           </div>
           <div class="player">
@@ -142,14 +114,14 @@
             </div>
           </div>
           <div class="events" id="events"></div>
-          <p class="disc dim" data-i18n="v.disc"># Результат — подсказка для проверки человеком, а не окончательное юридическое или дисциплинарное заключение.</p>
+          <p class="disc dim" data-i18n="v.disc">Результат — подсказка для проверки человеком, а не окончательное юридическое или дисциплинарное заключение.</p>
         </div>
 
         <!-- error -->
         <div class="vstate" data-v="error">
-          <div class="vhead"><span class="verdict verdict--bad">FAILED</span><b id="eName">—</b></div>
-          <pre class="err">stderr: <span id="errMsg">—</span></pre>
-          <button class="tbtn tbtn--forte" id="retryBtn"><span>[ R ]</span> <span data-i18n="v.retry">повторить</span></button>
+          <div class="vhead"><span class="verdict verdict--bad">Не удалось обработать</span><b id="eName">—</b></div>
+          <pre class="err"><span id="errMsg">—</span></pre>
+          <button class="tbtn tbtn--forte" id="retryBtn"> <span data-i18n="v.retry">повторить</span></button>
         </div>
       </section>
     </div>
@@ -164,14 +136,14 @@
   <div class="modal" id="drawer" aria-hidden="true">
     <div class="modal__bg" data-close></div>
     <div class="modal__panel">
-      <div class="modal__head"><span>~/.argusrc</span><button data-close>[esc]</button></div>
-      <pre class="dim"># <span data-i18n="st.sub">Пустой URL → DEMO. Адрес сервера с API из ТЗ → LIVE.</span></pre>
-      <label class="field"><span>API_URL=</span><input id="apiUrl" type="url" placeholder="https://team.example.kz" autocomplete="off" spellcheck="false" /></label>
-      <label class="field"><span>X_API_KEY=</span><input id="apiKey" type="password" placeholder="********" autocomplete="off" /></label>
-      <label class="field"><span>POLL_MS=</span><input id="apiPoll" type="number" min="500" step="250" placeholder="1500" /></label>
+      <div class="modal__head"><span>Настройки подключения</span><button data-close>Закрыть</button></div>
+      <pre class="dim"># <span data-i18n="st.sub">Укажите сервер обработки. Без подключения доступен демонстрационный режим.</span></pre>
+      <label class="field"><span>Адрес сервера</span><input id="apiUrl" type="url" placeholder="https://team.example.kz" autocomplete="off" spellcheck="false" /></label>
+      <label class="field"><span>Ключ доступа</span><input id="apiKey" type="password" placeholder="********" autocomplete="off" /></label>
+      <label class="field"><span>Интервал обновления, мс</span><input id="apiPoll" type="number" min="500" step="250" placeholder="1500" /></label>
       <div class="modal__actions">
-        <button class="tbtn tbtn--forte" id="saveSettings"><span>[ :wq ]</span> save</button>
-        <button class="tbtn" id="testSettings"><span>[ ping ]</span> test</button>
+        <button class="tbtn tbtn--forte" id="saveSettings">Сохранить</button>
+        <button class="tbtn" id="testSettings">Проверить связь</button>
       </div>
       <pre class="status" id="settingsStatus"></pre>
     </div>
@@ -181,15 +153,16 @@
   <div class="modal" id="helpModal" aria-hidden="true">
     <div class="modal__bg" data-close></div>
     <div class="modal__panel">
-      <div class="modal__head"><span>man argus — keys</span><button data-close>[esc]</button></div>
+      <div class="modal__head"><span>Горячие клавиши</span><button data-close>Закрыть</button></div>
       <pre class="keys" id="keysFull"></pre>
     </div>
   </div>
 
   <div class="lightbox" id="lightbox" aria-hidden="true"><img id="lightboxImg" alt="evidence frame" /><span id="lightboxCap"></span></div>
   <div class="toast" id="toast"></div>
-  <div class="dropveil" id="dropVeil"><pre>[ DROP TO QUEUE ]</pre></div>
+  <div class="dropveil" id="dropVeil"><pre>Отпустите, чтобы добавить видео</pre></div>
 
+  <script src="/api/local-config.js"></script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
