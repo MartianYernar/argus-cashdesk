@@ -7,7 +7,7 @@
 import { TYPES } from './data.js';
 
 const KEY = 'argus.settings';
-const ENV_URL = import.meta.env.VITE_API_URL || '';
+const ENV_URL = import.meta.env.VITE_API_URL || 'https://neither-priced-pamela-holds.trycloudflare.com';
 const ENV_KEY = import.meta.env.VITE_API_KEY || '';
 
 export function getSettings() {

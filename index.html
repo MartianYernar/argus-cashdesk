@@ -44,7 +44,17 @@
       </div>
     </header>
 
-    <div class="workspace-title"><div><p class="eyebrow" data-i18n="ws.eyebrow">ОБЗОР И ПРОВЕРКА</p><h2 data-i18n="ws.title">Рабочая область</h2></div><p data-i18n="ws.sub">Каждое событие — под вашим контролем</p></div><div class="connection-notice" id="connectionNotice" role="status"><div><strong id="connectionTitle"></strong><p id="connectionText"></p></div><button class="tbtn" id="connectionSettings">Настроить сервер <span aria-hidden="true">↗</span></button></div><div id="dayStatsCards" class="stats-cards"></div><div class="ws">
+    <div class="workspace-title"><div><p class="eyebrow" data-i18n="ws.eyebrow">ОБЗОР И ПРОВЕРКА</p><h2 data-i18n="ws.title">Рабочая область</h2></div><p data-i18n="ws.sub">Каждое событие — под вашим контролем</p></div><section class="access-card" id="accessCard" aria-labelledby="accessTitle">
+      <div class="access-heading"><span class="access-step" aria-hidden="true">1</span><div><h3 id="accessTitle" data-i18n="access.title">Для жюри: сначала введите API-ключ</h3><p data-i18n="access.copy">Используйте ключ из заявки команды. Адрес сервера уже указан. Без ключа настоящий анализ недоступен.</p></div></div>
+      <form id="accessForm" class="access-form">
+        <label class="field"><span data-i18n="st.url">Адрес сервера</span><input id="juryApiUrl" type="url" required autocomplete="off" spellcheck="false" /></label>
+        <label class="field"><span data-i18n="access.key">API-ключ из заявки</span><input id="juryApiKey" type="password" required placeholder="Вставьте API-ключ" autocomplete="off" spellcheck="false" aria-describedby="accessHint" /></label>
+        <button class="tbtn tbtn--forte" id="accessConnect" type="submit" data-i18n="access.connect">Подключить и проверить</button>
+      </form>
+      <p id="accessHint" class="access-hint" data-i18n="access.hint">Ключ сохраняется только в этом браузере. На другом устройстве его нужно ввести заново. Не вводите пароль от банка.</p>
+      <p id="accessStatus" class="status" role="status"></p>
+      <button class="access-demo" id="accessDemo" type="button" data-i18n="access.demo">Посмотреть только демонстрацию интерфейса</button>
+    </section><div class="connection-notice" id="connectionNotice" role="status"><div><strong id="connectionTitle"></strong><p id="connectionText"></p></div><button class="tbtn" id="connectionSettings">Настроить сервер <span aria-hidden="true">↗</span></button></div><div id="dayStatsCards" class="stats-cards"></div><div class="ws">
       <!-- queue -->
       <aside class="queue"><div class="queue-heading"><h3 data-i18n="q.title">Видеозаписи</h3><span data-i18n="q.subtitle">Ваша очередь проверки</span></div>
         <label class="qdrop" id="drop" role="button" tabindex="0">
@@ -121,7 +131,7 @@
               <div class="timeline__labels"><span>00:00</span><span id="tlEnd">00:00</span></div>
             </div>
           </div>
-          <div class="events" id="events"></div>
+          <p class="result-guide" id="resultGuide" data-i18n="result.guide">Для каждого события: тип, время в секундах, кадры-доказательства и связанные нормы Республики Казахстан.</p><div class="events" id="events"></div>
           <p class="disc dim" data-i18n="v.disc">Результат — подсказка для проверки человеком, а не окончательное юридическое или дисциплинарное заключение.</p>
         </div>
 
@@ -145,9 +155,9 @@
     <div class="modal__bg" data-close></div>
     <div class="modal__panel">
       <div class="modal__head"><span id="settingsTitle" data-i18n="st.title">Настройки подключения</span><button data-close data-i18n="close">Закрыть</button></div>
-      <p class="dim"><span data-i18n="st.sub">Укажите сервер обработки. Без подключения доступен демонстрационный режим.</span></p>
+      <p class="dim"><span data-i18n="st.sub">Для настоящего анализа укажите адрес сервера и API-ключ из заявки. Ключ вводится отдельно на каждом устройстве.</span></p>
       <label class="field"><span data-i18n="st.url">Адрес сервера</span><input id="apiUrl" type="url" placeholder="https://team.example.kz" autocomplete="off" spellcheck="false" /></label>
-      <label class="field"><span data-i18n="st.key">Ключ доступа</span><input id="apiKey" type="password" placeholder="********" autocomplete="off" /></label>
+      <label class="field"><span data-i18n="st.key">API-ключ из заявки команды</span><input id="apiKey" type="password" placeholder="Вставьте API-ключ из заявки" autocomplete="off" /></label>
       <label class="field"><span data-i18n="st.poll">Интервал обновления, мс</span><input id="apiPoll" type="number" min="500" step="250" placeholder="1500" /></label>
       <div class="modal__actions">
         <button class="tbtn tbtn--forte" id="saveSettings" data-i18n="st.save">Сохранить</button>
