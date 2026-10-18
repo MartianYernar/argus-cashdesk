@@ -37,7 +37,9 @@ SLOT = threading.BoundedSemaphore(1)
 POOL = ThreadPoolExecutor(max_workers=1)
 logger = logging.getLogger("argus")
 app = FastAPI(title="ARGUS local inference", version="2.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["X-API-Key", "Content-Type"])
+ALLOWED_ORIGINS = ["https://martianyernar.github.io", "http://localhost:5173", "http://127.0.0.1:5173"]
+ALLOWED_ORIGINS.extend(origin.strip() for origin in os.environ.get("ARGUS_ALLOWED_ORIGINS", "").split(",") if origin.strip())
+app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_methods=["GET", "POST"], allow_headers=["X-API-Key", "Content-Type"])
 
 def require_key(x_api_key: Optional[str] = Header(default=None)):
     if not x_api_key or not hmac.compare_digest(x_api_key, API_KEY):

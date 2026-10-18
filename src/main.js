@@ -3,7 +3,7 @@ import './style.css';
 import { reduced } from './effects.js';
 import { initI18n, toggleLang, onLang, t, pick } from './i18n.js';
 import { RULES, ruleById, typeByName } from './data.js';
-import { analyze, getSettings, saveSettings, isLive, ping } from './api.js';
+import { analyze, getSettings, saveSettings, isLive, checkConnection } from './api.js';
 import { putJob, deleteJob, clearJobs, allJobs } from './store.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -410,6 +410,10 @@ $('#bigDrop').addEventListener('click', () => $('#fileInput').click());
 //  settings, help, misc
 // =========================================================
 const drawer = $('#drawer'), help = $('#helpModal');
+function connectionMessage(result) {
+  const key = { auth: 'connectionAuth', endpoint: 'connectionEndpoint', response: 'connectionResponse', server: 'connectionServer', timeout: 'connectionTimeout', network: 'connectionNetwork', model_not_installed: 'connectionMissingModel', ollama_unavailable: 'connectionOllama', no_server: 'demoText' }[result.reason] || 'offlineText';
+  return t(key);
+}
 let modeVersion = 0;
 async function refreshMode() {
   const version = ++modeVersion, live = isLive(), pill = $('#modePill'), notice = $('#connectionNotice');
@@ -420,12 +424,12 @@ async function refreshMode() {
   $('#connectionText').textContent = live ? t('connectingText') : t('demoText');
   $('#connectionSettings').firstChild.textContent = t('configure') + ' ';
   if (!live) return;
-  const ok = await ping();
+  const result = await checkConnection(), ok = result.ready;
   if (version !== modeVersion) return;
   pill.classList.toggle('is-live', ok); notice.classList.toggle('is-ready', ok);
   $('#modeLabel').textContent = ok ? t('liveMode') : t('offline');
   $('#connectionTitle').textContent = ok ? t('readyTitle') : t('offlineTitle');
-  $('#connectionText').textContent = ok ? t('readyText') : t('offlineText');
+  $('#connectionText').textContent = ok ? t('readyText') : connectionMessage(result);
 }
 let lastFocus;
 function openModal(modal) {
@@ -437,9 +441,17 @@ function closeModal(modal) {
   modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('has-modal'); lastFocus?.focus();
 }
+function updateServerWebsite() {
+  const link = $('#serverWebsite');
+  try {
+    const url = new URL(getSettings().url);
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || (location.protocol === 'https:' && url.protocol !== 'https:')) throw new Error();
+    link.href = url.href; link.hidden = false;
+  } catch { link.removeAttribute('href'); link.hidden = true; }
+}
 function openSettings() {
   const s = getSettings(); $('#apiUrl').value = s.url; $('#apiKey').value = s.key; $('#apiPoll').value = s.poll; $('#settingsStatus').textContent = '';
-  openModal(drawer);
+  updateServerWebsite(); openModal(drawer);
 }
 refreshMode();
 $('#modePill').addEventListener('click', openSettings);
@@ -451,13 +463,13 @@ const saveForm = () => {
     catch { $('#settingsStatus').textContent = t('invalidUrl'); $('#apiUrl').focus(); return false; }
     if (location.protocol === 'https:' && url.startsWith('http:')) { $('#settingsStatus').textContent = t('httpsRequired'); return false; }
   }
-  saveSettings({ url, key: $('#apiKey').value.trim(), poll: Math.max(500, Math.min(10000, Number($('#apiPoll').value) || 1500)) }); refreshMode(); return true;
+  saveSettings({ url, key: $('#apiKey').value.trim(), poll: Math.max(500, Math.min(10000, Number($('#apiPoll').value) || 1500)) }); updateServerWebsite(); refreshMode(); return true;
 };
 $('#saveSettings').addEventListener('click', () => { if (!saveForm()) return; toast(t('saved')); closeModal(drawer); });
 $('#testSettings').addEventListener('click', async () => {
   if (!saveForm()) return;
   const st = $('#settingsStatus'), button = $('#testSettings'); button.disabled = true; st.className = 'status'; st.textContent = t('connecting');
-  try { const ok = await ping(); st.textContent = ok ? t('testOk') : t('testBad'); st.classList.add(ok ? 'ok' : 'bad'); }
+  try { const result = await checkConnection(); st.textContent = result.ready ? t('testOk') : connectionMessage(result); st.classList.add(result.ready ? 'ok' : 'bad'); }
   finally { button.disabled = false; }
 });
 $('#helpBtn').addEventListener('click', () => openModal(help));

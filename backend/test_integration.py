@@ -24,6 +24,17 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/v1/jobs/unknown").status_code, 401)
         self.assertEqual(self.client.post("/api/v1/analyze", files={"file": ("x.mov", b"x")}).status_code, 401)
         self.assertEqual(self.client.get("/api/v1/health").status_code, 401)
+    def test_published_site_preflight_and_auth(self):
+        origin = "https://martianyernar.github.io"
+        headers = {"Origin": origin, "Access-Control-Request-Method": "GET", "Access-Control-Request-Headers": "x-api-key"}
+        response = self.client.options("/api/v1/health", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["access-control-allow-origin"], origin)
+        response = self.client.get("/api/v1/health", headers={"Origin": origin})
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.headers["access-control-allow-origin"], origin)
+        headers["Origin"] = "https://unrelated.example"
+        self.assertEqual(self.client.options("/api/v1/health", headers=headers).status_code, 400)
     def test_health_requires_available_model(self):
         with patch.object(server, "model_health", return_value={"ready": False, "reason": "ollama_unavailable"}):
             self.assertFalse(self.client.get("/api/v1/health", headers=self.headers).json()["ready"])

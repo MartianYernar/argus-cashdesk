@@ -27,14 +27,22 @@ export function saveSettings(s) {
 }
 export const isLive = () => !!getSettings().url;
 
-export async function ping() {
+export async function checkConnection() {
   const { url, key } = getSettings();
-  if (!url) return false;
+  if (!url) return { ready: false, reason: 'no_server' };
   try {
-    const r = await fetch(`${url}/api/v1/health`, { headers: { 'X-API-Key': key }, signal: AbortSignal.timeout(5000) });
-    return r.ok && (await r.json()).ready === true;
-  } catch { return false; }
+    const r = await fetch(`${url}/api/v1/health`, { headers: { 'X-API-Key': key }, signal: AbortSignal.timeout(10000) });
+    if (r.status === 401 || r.status === 403) return { ready: false, reason: 'auth' };
+    if (r.status === 404) return { ready: false, reason: 'endpoint' };
+    if (!r.ok) return { ready: false, reason: 'server', status: r.status };
+    let data;
+    try { data = await r.json(); } catch { return { ready: false, reason: 'response' }; }
+    return { ready: data.ready === true, reason: data.ready === true ? null : data.reason || 'model' };
+  } catch (error) {
+    return { ready: false, reason: error.name === 'TimeoutError' ? 'timeout' : 'network' };
+  }
 }
+export const ping = async () => (await checkConnection()).ready;
 
 /**
  * analyze(file, { onPhase(phase), onProgress(pct), onLog(msg, cls), onFrame(canvas), signal })
