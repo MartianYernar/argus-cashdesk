@@ -1,4 +1,4 @@
-import { LEGAL_CATALOG } from './legal.js';
+import { legalDetails, secondsLabel, safeSourceUrl } from './result-details.js';
 import './style.css';
 import { reduced } from './effects.js';
 import { initI18n, toggleLang, onLang, t, pick } from './i18n.js';
@@ -23,6 +23,7 @@ let filter = 'all';
 let search = '';
 let focusIdx = 0;        // focused event in result view
 let running = false;
+let pendingFiles = null;
 
 const job = (id) => jobs.find((j) => j.id === id);
 const sel = () => job(selId);
@@ -55,6 +56,7 @@ function toApp() { $('#app').scrollIntoView({ behavior: reduced ? 'auto' : 'smoo
 function addFiles(list) {
   const files = [...list].filter(isVideo);
   if (!files.length) { toast(t('badFile')); return; }
+  if (isLive() && !getSettings().key) { pendingFiles = files; openSettings(); $('#settingsStatus').textContent = t('accessRequired'); $('#apiKey').focus(); return; }
   const now = Date.now();
   files.forEach((file, k) => {
     const j = { id: `${now.toString(36)}${k}${Math.random().toString(36).slice(2, 6)}`, name: file.name, size: file.size, createdAt: now + k, status: 'queued', progress: 0, decisions: {}, notes: {}, file, url: URL.createObjectURL(file), logs: [] };
@@ -69,6 +71,7 @@ function addFiles(list) {
 
 async function run() {
   if (running) return;
+  if (isLive() && !getSettings().key) { openSettings(); $('#settingsStatus').textContent = t('accessRequired'); $('#apiKey').focus(); return; }
   running = true;
   let j;
   while ((j = [...jobs].reverse().find((x) => x.status === 'queued'))) {
@@ -232,18 +235,17 @@ $('#retryBtn').addEventListener('click', () => {
 
 function normalize(v) {
   const ty = typeByName(v.type);
-  const context = LEGAL_CATALOG.events.find(e => e.type === v.type);
-  const source = context?.sources?.[0];
-  const act = source && LEGAL_CATALOG.sources.find(s => s.id === source.act);
-  const mappedRule = source ? { document: act?.title_ru || source.act, clause: source.clause, url: source.url } : null;
-  return { ...v, legal_context: context, _ty: ty, _rule: mappedRule || v.rule || (v.rule_id && ruleById(v.rule_id)) || (ty && ruleById(ty.rule)) || null };
+  const { context, sources } = legalDetails(v);
+  const mappedRule = sources[0];
+  return { ...v, legal_context: context, _rules: sources, _ty: ty, _rule: mappedRule || v.rule || (v.rule_id && ruleById(v.rule_id)) || (ty && ruleById(ty.rule)) || null };
 }
 function ruleHTML(r) {
   if (!r) return `<span class="lbl">§ ${t('rule')}:</span> ${t('noRule')}`;
   const title = r.document || pick(r.title);
   const clause = r.clause && typeof r.clause === 'object' ? pick(r.clause) : r.clause;
   const meta = r.meta ? pick(r.meta) : '';
-  return `<span class="lbl">§ ${t('rule')}:</span> <b>${esc(title)}</b>${meta ? ` — ${esc(meta)}` : ''}${clause ? `, ${esc(clause)}` : ''}${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">adilet ↗</a>` : ''}`;
+  const href = safeSourceUrl(r.url);
+  return `<span class="lbl">§ ${t('rule')}:</span> <b>${esc(title)}</b>${meta ? ` — ${esc(meta)}` : ''}${clause ? `, ${esc(clause)}` : ''}${href ? ` <a href="${esc(href)}" target="_blank" rel="noopener">adilet ↗</a>` : ''}`;
 }
 
 function renderResult(j, justFinished) {
@@ -271,6 +273,7 @@ function renderResult(j, justFinished) {
   video.ontimeupdate = () => { $('#tlPlayed').style.width = `${(video.currentTime / (video.duration || 1)) * 100}%`; };
 
   // events
+  $('#resultGuide').hidden = !vs.length;
   const box = $('#events');
   if (!vs.length) {
     box.innerHTML = `<div class="clean"><strong>✓ ${t('verdictGood')}</strong><p>${esc(t('cleanText'))}</p></div>`;
@@ -281,11 +284,11 @@ function renderResult(j, justFinished) {
     const d = j.decisions[i];
     const conf = typeof v.confidence === 'number' ? v.confidence : null;
     return `<article class="ev ${d ? 'is-' + d : ''} ${i === focusIdx ? 'is-focus' : ''}" data-i="${i}">
-      <div class="ev__frames n${frames.length || 1}">${frames.map((f) => `<div class="frame" data-src="data:image/jpeg;base64,${f.image_base64}" data-cap="#${i + 1} ${esc(v.type)} · ${fmt(f.timestamp_sec)}"><img loading="lazy" src="data:image/jpeg;base64,${f.image_base64}" alt="evidence ${f.timestamp_sec}s"/><span>${fmt(f.timestamp_sec)}</span></div>`).join('')}</div>
+      <div class="ev__evidence"><h4 class="detail-label">${t('evidenceLabel')} · ${frames.length}</h4><div class="ev__frames n${frames.length || 1}">${frames.map((f) => `<div class="frame" data-src="data:image/jpeg;base64,${f.image_base64}" data-cap="#${i + 1} ${esc(v.type)} · ${fmt(f.timestamp_sec)}"><img loading="lazy" src="data:image/jpeg;base64,${f.image_base64}" alt="evidence ${f.timestamp_sec}s"/><span>${secondsLabel(f.timestamp_sec, t('secondsUnit'))}</span></div>`).join('')}</div></div>
       <div>
-        <div class="ev__top"><span class="ev__n">#${i + 1}</span><span class="ev__type">${esc(v._ty ? pick(v._ty.name) : v.type)}</span><button class="ev__tc" data-seek="${v.timecode_sec}">▶ ${fmt(v.timecode_sec)}</button></div>
+        <div class="ev__top"><span class="ev__n">#${i + 1}</span><span class="ev__type"><small class="detail-label">${t('typeLabel')}</small>${esc(v._ty ? pick(v._ty.name) : v.type)}</span><button class="ev__tc" data-seek="${v.timecode_sec}" title="${fmt(v.timecode_sec)}">▶ ${secondsLabel(v.timecode_sec, t('secondsUnit'))}</button></div>
         <p class="ev__desc">${esc(v.description)}</p>
-        <div class="ev__rule">${ruleHTML(v._rule)}${v.legal_context ? `<p>${esc(v.legal_context.relevance_ru || '')}</p><p>${esc(v.legal_context.limitations_ru || '')}</p><p>Основание для проверки сотрудником; автоматический юридический вывод не формируется.</p>` : ''}</div>
+        <div class="ev__rule"><h4 class="detail-label">${t('lawLabel')}</h4>${(v._rules.length ? v._rules : [v._rule]).map(rule => `<div class="law-source">${ruleHTML(rule)}</div>`).join('')}${v.legal_context ? `<p><strong>${t('lawRelevance')}</strong> ${esc(v.legal_context.relevance_ru || '')}</p><p><strong>${t('lawEvidence')}</strong> ${esc(v.legal_context.evidence_needed_ru || '')}</p><p><strong>${t('lawLimits')}</strong> ${esc(v.legal_context.limitations_ru || '')}</p>` : ''}<p class="law-notice">${t('lawNotice')}</p></div>
         ${conf != null ? `<div class="ev__conf">${t('confidence')} <i><span style="width:${conf * 100}%"></span></i> ${(conf * 100).toFixed(0)}%</div>` : ''}
         <div class="ev__act">
           <button class="tbtn ${d === 'confirmed' ? 'is-on' : ''}" data-dec="confirmed"><span>✓</span> ${t('confirm')}</button>
@@ -340,8 +343,9 @@ $('#jsonBtn').addEventListener('click', saveJSON);
 $('#delBtn').addEventListener('click', delSel);
 function saveJSON() {
   const j = sel(); if (!j?.result) return;
-  const { demo, ...res } = j.result;
-  download(`argus_${j.name.replace(/\.\w+$/, '')}_${res.job_id}.json`, JSON.stringify({ ...res, review: { decisions: j.decisions, notes: j.notes } }, null, 2), 'application/json');
+  const res = j.result;
+  const regulatory_context = events(j).map((event, index) => ({ event_index: index, ...legalDetails(event), source: "provided_legal_catalog", automatic_legal_conclusion: false }));
+  download(`argus_${j.name.replace(/\.\w+$/, '')}_${res.job_id}.json`, JSON.stringify({ ...res, regulatory_context, review: { decisions: j.decisions, notes: j.notes } }, null, 2), 'application/json');
 }
 function delSel() {
   const j = sel(); if (!j) return;
@@ -423,10 +427,13 @@ async function refreshMode() {
   $('#connectionTitle').textContent = live ? t('connecting') : t('demoTitle');
   $('#connectionText').textContent = live ? t('connectingText') : t('demoText');
   $('#connectionSettings').firstChild.textContent = t('configure') + ' ';
+  const access = $('#accessCard'); access.hidden = !live;
+  if (!$('#accessForm').contains(document.activeElement)) { $('#juryApiUrl').value = getSettings().url; $('#juryApiKey').value = getSettings().key; }
   if (!live) return;
+  if (!getSettings().key) { $('#modeLabel').textContent = t('keyNeeded'); $('#connectionTitle').textContent = t('keyNeeded'); $('#connectionText').textContent = t('accessRequired'); return; }
   const result = await checkConnection(), ok = result.ready;
   if (version !== modeVersion) return;
-  pill.classList.toggle('is-live', ok); notice.classList.toggle('is-ready', ok);
+  pill.classList.toggle('is-live', ok); notice.classList.toggle('is-ready', ok); access.hidden = ok;
   $('#modeLabel').textContent = ok ? t('liveMode') : t('offline');
   $('#connectionTitle').textContent = ok ? t('readyTitle') : t('offlineTitle');
   $('#connectionText').textContent = ok ? t('readyText') : connectionMessage(result);
@@ -438,6 +445,7 @@ function openModal(modal) {
   (modal.querySelector('input') || modal.querySelector('button'))?.focus();
 }
 function closeModal(modal) {
+  if (modal === drawer) pendingFiles = null;
   modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('has-modal'); lastFocus?.focus();
 }
@@ -461,17 +469,39 @@ const saveForm = () => {
   if (url) {
     try { const parsed = new URL(url); if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error(); }
     catch { $('#settingsStatus').textContent = t('invalidUrl'); $('#apiUrl').focus(); return false; }
+    if (!$('#apiKey').value.trim()) { $('#settingsStatus').textContent = t('accessRequired'); $('#apiKey').focus(); return false; }
     if (location.protocol === 'https:' && url.startsWith('http:')) { $('#settingsStatus').textContent = t('httpsRequired'); return false; }
   }
   saveSettings({ url, key: $('#apiKey').value.trim(), poll: Math.max(500, Math.min(10000, Number($('#apiPoll').value) || 1500)) }); updateServerWebsite(); refreshMode(); return true;
 };
-$('#saveSettings').addEventListener('click', () => { if (!saveForm()) return; toast(t('saved')); closeModal(drawer); });
+$('#saveSettings').addEventListener('click', async () => {
+  if (!saveForm()) return;
+  const files = pendingFiles;
+  if (files || jobs.some(j => j.status === 'queued')) {
+    const result = await checkConnection();
+    if (isLive() && !result.ready) { $('#settingsStatus').textContent = connectionMessage(result); return; }
+  }
+  toast(t('saved')); closeModal(drawer);
+  if (files) addFiles(files); else run();
+});
 $('#testSettings').addEventListener('click', async () => {
   if (!saveForm()) return;
   const st = $('#settingsStatus'), button = $('#testSettings'); button.disabled = true; st.className = 'status'; st.textContent = t('connecting');
   try { const result = await checkConnection(); st.textContent = result.ready ? t('testOk') : connectionMessage(result); st.classList.add(result.ready ? 'ok' : 'bad'); }
   finally { button.disabled = false; }
 });
+$('#accessForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  $('#apiUrl').value = $('#juryApiUrl').value; $('#apiKey').value = $('#juryApiKey').value; $('#apiPoll').value = getSettings().poll;
+  const status = $('#accessStatus'), button = $('#accessConnect');
+  if (!saveForm()) { status.textContent = $('#settingsStatus').textContent; return; }
+  button.disabled = true; status.textContent = t('connecting');
+  try {
+    const result = await checkConnection(); status.textContent = result.ready ? t('testOk') : connectionMessage(result);
+    if (result.ready) { $('#accessCard').hidden = true; toast(t('testOk')); run(); }
+  } finally { button.disabled = false; }
+});
+$('#accessDemo').addEventListener('click', () => { saveSettings({url: '', key: '', poll: 1500}); refreshMode(); });
 $('#helpBtn').addEventListener('click', () => openModal(help));
 $$('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.closest('.modal'))));
 addEventListener('keydown', e => {
