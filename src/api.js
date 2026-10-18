@@ -13,10 +13,13 @@ const ENV_KEY = import.meta.env.VITE_API_KEY || '';
 export function getSettings() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+  const localUrl = window.ARGUS_LOCAL ? location.origin : '';
+  const url = (s.url ?? (localUrl || ENV_URL)).replace(/\/+$/, '');
+  const useLocalKey = localUrl && url === localUrl;
   return {
-    url: (window.ARGUS_LOCAL ? location.origin : (s.url ?? ENV_URL)).replace(/\/+$/, ''),
-    key: window.ARGUS_LOCAL?.key ?? s.key ?? ENV_KEY,
-    poll: Number(s.poll) || 1500,
+    url,
+    key: (useLocalKey ? window.ARGUS_LOCAL?.key : undefined) ?? s.key ?? ENV_KEY,
+    poll: Math.max(500, Math.min(10000, Number(s.poll) || 1500)),
   };
 }
 export function saveSettings(s) {
@@ -28,7 +31,7 @@ export async function ping() {
   const { url, key } = getSettings();
   if (!url) return false;
   try {
-    const r = await fetch(`${url}/api/v1/health`, { headers: { 'X-API-Key': key } });
+    const r = await fetch(`${url}/api/v1/health`, { headers: { 'X-API-Key': key }, signal: AbortSignal.timeout(5000) });
     return r.ok && (await r.json()).ready === true;
   } catch { return false; }
 }
@@ -50,6 +53,9 @@ async function analyzeLive(file, { onPhase, onProgress, onLog, signal }) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${url}/api/v1/analyze`);
     xhr.setRequestHeader('X-API-Key', key);
+    xhr.timeout = 300000;
+    xhr.ontimeout = () => reject(new Error('Загрузка превысила время ожидания. Проверьте соединение.'));
+    if (signal?.aborted) return reject(new DOMException('Aborted', 'AbortError'));
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress((e.loaded / e.total) * 35);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -77,6 +83,8 @@ async function analyzeLive(file, { onPhase, onProgress, onLog, signal }) {
     const data = await r.json();
     const elapsed = (Date.now() - started) / 1000;
     onLog(`GET /jobs/${jobId} → ${data.status} (${elapsed.toFixed(1)}s)`);
+    if (!['processing', 'done', 'failed'].includes(data.status)) throw new Error('Неожиданный ответ сервера.');
+    if (data.status === 'done' && (!Array.isArray(data.violations) || !['violation', 'no_violation'].includes(data.verdict) || Boolean(data.violations.length) !== (data.verdict === 'violation'))) throw new Error('Сервер вернул неполный результат.');
     if (data.status === 'done') { onProgress(100); return { ...data, job_id: data.job_id || jobId }; }
     if (data.status === 'failed') throw new Error(data.error || 'Проверка не завершена: ошибка модели или превышено время анализа. Попробуйте снова.');
     // The frozen detector reports no milestones; do not invent a percentage.
