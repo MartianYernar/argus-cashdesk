@@ -1,5 +1,6 @@
+import { LEGAL_CATALOG } from './legal.js';
 import './style.css';
-import { scramble, typeText, sleep, bar, reduced } from './effects.js';
+import { bar, reduced } from './effects.js';
 import { initI18n, toggleLang, onLang, t, pick } from './i18n.js';
 import { RULES, ruleById, typeByName } from './data.js';
 import { analyze, getSettings, saveSettings, isLive, ping } from './api.js';
@@ -41,74 +42,6 @@ function review(j) {
 initI18n();
 $('#sources').innerHTML = RULES.map((r) => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(pick(r.meta).split('·')[0].trim())}</a>`).join(' · ');
 
-const BOOT = [
-  ['> argus boot sequence v1.0', ''],
-  ['> mounting local weights ........ ok', ''],
-  ['  > cloud endpoints ............... BLOCKED', 'bad'],
-  ['> opencv / ffmpeg ............... ok', ''],
-  ['  > face recognition .............. DISABLED', 'bad'],
-  ['> rule base: НБРК · adilet ...... loaded', ''],
-  ['> review history ................ mounted', ''],
-  ['> all eyes open.', ''],
-];
-function boot() {
-  let first = true;
-  try { first = !sessionStorage.getItem('argus.booted'); sessionStorage.setItem('argus.booted', '1'); } catch {}
-  const el = $('#boot');
-  if (!first || reduced) { el.remove(); return Promise.resolve(false); }
-  return new Promise((resolve) => {
-    const log = $('#bootLog'), barEl = $('#bootBar'), pct = $('#bootPct');
-    const W = Math.max(10, Math.min(40, Math.floor((innerWidth - 120) / 10)));
-    let i = 0, done = false;
-    const finish = () => {
-      if (done) return; done = true;
-      removeEventListener('keydown', finish); removeEventListener('pointerdown', finish);
-      barEl.textContent = `[${'█'.repeat(W)}]`; pct.textContent = '100%';
-      el.animate([{ transform: 'scaleY(1)', opacity: 1 }, { transform: 'scaleY(.004)', opacity: 1, offset: 0.7 }, { transform: 'scale(0, .004)', opacity: 0 }], { duration: 380, easing: 'ease-in' }).onfinish = () => { el.remove(); resolve(true); };
-    };
-    addEventListener('keydown', finish); addEventListener('pointerdown', finish);
-    barEl.textContent = `[${bar(0, 1, W)}]`;
-    const step = () => {
-      if (done) return;
-      if (i < BOOT.length) {
-        const [txt, cls] = BOOT[i++];
-        log.insertAdjacentHTML('beforeend', `<span class="${cls}">${esc(txt)}</span>\n`);
-        const p = Math.round((i / BOOT.length) * 100);
-        barEl.textContent = `[${bar(p, 100, W)}]`; pct.textContent = `${p}%`;
-        setTimeout(step, 110 + Math.random() * 150);
-      } else setTimeout(finish, 300);
-    };
-    step();
-  });
-}
-
-async function landing(animate) {
-  const log = $('#heroLog');
-  const lines = [
-    ['Last login: ' + new Date().toString().slice(0, 24) + ' on ttys001', 'dimline'],
-    ['> argus boot sequence v1.0', ''],
-    ['> mounting local weights ........ ok', ''],
-    ['  > cloud endpoints ............... BLOCKED', 'bad'],
-    ['> opencv / ffmpeg ............... ok', ''],
-    ['  > face recognition .............. DISABLED', 'bad'],
-    ['> rule base: НБРК · adilet ...... loaded', ''],
-  ];
-  for (const [l, c] of lines) { log.insertAdjacentHTML('beforeend', `<span class="${c}">${esc(l)}</span>\n`); if (animate) await sleep(60); }
-  if (animate) {
-    $('#ascii').animate([{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: 800, easing: 'steps(24)' });
-    await sleep(450);
-    await typeText($('#heroCmd'), './argus --help');
-  }
-  $('#heroHelp').classList.add('is-on');
-}
-// raspberry flicker inside the banner
-{
-  const ascii = $('#ascii'), raw = ascii.textContent;
-  if (!reduced) setInterval(() => {
-    ascii.innerHTML = [...raw].map((ch) => (ch === '█' && Math.random() < 0.03 ? '<span class="fc">█</span>' : ch)).join('');
-    if (Math.random() < 0.25) ascii.animate([{ transform: 'translateX(-4px) skewX(8deg)' }, { transform: 'none' }], { duration: 140, easing: 'steps(3)' });
-  }, 900);
-}
 $('#enterBtn').addEventListener('click', (e) => { e.preventDefault(); toApp(); });
 function toApp() { $('#app').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' }); }
 
@@ -185,16 +118,20 @@ function itemHTML(j) {
   const meta = [hhmm(j.createdAt), `${(j.size / 1e6).toFixed(1)} MB`];
   if (j.status === 'done' && n) meta.push(t('events', n));
   if (j.status === 'done' && j.elapsed) meta.push(`${j.elapsed.toFixed(1)}s`);
-  return `<span class="qitem__name">${esc(j.name)}</span><span class="qitem__st ${cls}">${r === 'proc' ? `${Math.round(j.progress)}%` : label}</span>
+  return `<span class="qitem__name">${esc(j.name)}</span><span class="qitem__st ${cls}">${r === 'proc' ? (j.progress == null ? '…' : `${Math.round(j.progress)}%`) : label}</span>
     <span class="qitem__meta">${meta.join(' · ')}</span>${r === 'proc' || r === 'queued' ? `<span class="qitem__bar"><i style="width:${j.progress}%"></i></span>` : ''}`;
 }
 function renderList() {
   const ul = $('#qList');
   const vs = visible();
-  ul.innerHTML = vs.length ? vs.map((j) => `<li class="qitem${j.id === selId ? ' is-sel' : ''}" data-id="${j.id}">${itemHTML(j)}</li>`).join('') : `<li class="qempty">—</li>`;
+  ul.innerHTML = vs.length ? vs.map((j) => `<li tabindex="0" role="button" aria-pressed="${j.id === selId}" class="qitem${j.id === selId ? ' is-sel' : ''}" data-id="${j.id}">${itemHTML(j)}</li>`).join('') : `<li class="qempty">${t('emptyQueue')}</li>`;
 }
 function updateItem(j) { const li = $(`.qitem[data-id="${j.id}"]`); if (li) li.innerHTML = itemHTML(j); }
 $('#qList').addEventListener('click', (e) => { const li = e.target.closest('.qitem'); if (li) select(li.dataset.id); });
+$('#qList').addEventListener('keydown', (e) => {
+  const item = e.target.closest('.qitem');
+  if (item && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); select(item.dataset.id); }
+});
 $('#qFilters').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; filter = b.dataset.f; $$('#qFilters button').forEach((x) => x.classList.toggle('is-on', x === b)); renderList(); });
 $('#qSearch').addEventListener('input', (e) => { search = e.target.value.trim().toLowerCase(); renderList(); });
 $('#clearBtn').addEventListener('click', async () => {
@@ -240,6 +177,10 @@ function renderStats() {
     <span class="st--pend"><b>${a.pending}</b>${t('stPending')}</span>
     <span class="st--ok"><b>${a.confirmed}</b>${t('stConfirmed')}</span>
     ${a.queue ? `<span><b>${a.queue}</b>${t('stQueue')}</span>` : ''}`;
+  $('#dayStatsCards').innerHTML = [
+    [a.checked, t('cardChecked'), 'checked'], [a.pending, t('cardPending'), 'pending'],
+    [a.confirmed, t('cardConfirmed'), 'confirmed']
+  ].map(([n, label, cls]) => `<div class="stat-card ${cls}"><span>${label}</span><b>${n.toString().padStart(2, '0')}</b></div>`).join('');
   $('#heroToday').textContent = t('today', a);
 }
 
@@ -253,7 +194,7 @@ function renderViewer(justFinished) {
   if (j.status === 'queued' || j.status === 'proc') {
     showV('proc');
     $('#pName').textContent = j.name;
-    $('#pMeta').textContent = `${(j.size / 1e6).toFixed(1)} MB · ${j.status === 'queued' ? t('queued') : 'job running'}`;
+    $('#pMeta').textContent = `${(j.size / 1e6).toFixed(1)} MB · ${j.status === 'queued' ? t('queued') : t('proc')}`;
     const v = $('#procVideo');
     if (j.url && v.src !== j.url) { v.src = j.url; v.play().catch(() => {}); }
     setProgress(j.progress); setPhase(j.phase || 'upload');
@@ -273,11 +214,10 @@ function setPhase(ph) {
   const idx = PHASES.indexOf(ph);
   $$('#phases li').forEach((li, i) => {
     li.classList.toggle('is-done', i < idx); li.classList.toggle('is-active', i === idx);
-    li.querySelector('.u').textContent = i < idx ? '[  OK  ]' : i === idx ? '[ .... ]' : '[      ]';
+    li.querySelector('.u').textContent = i < idx ? '✓' : i === idx ? '●' : '○';
   });
 }
-setInterval(() => { const u = $('#phases li.is-active .u'); if (u) { const f = ['[*     ]', '[ *    ]', '[  *   ]', '[   *  ]', '[    * ]', '[     *]', '[    * ]', '[   *  ]', '[  *   ]', '[ *    ]']; u._i = ((u._i || 0) + 1) % f.length; u.textContent = f[u._i]; } }, 90);
-function setProgress(p) { $('#procPct').textContent = Math.round(p); $('#procBar').textContent = `[${bar(p, 100, 28)}]`; }
+function setProgress(p) { const waiting = p == null; $('#procPct').textContent = waiting ? '…' : Math.round(p); $('#procUnit').hidden = waiting; $('#procBar').classList.toggle('is-indeterminate', waiting); $('#procBar').style.width = waiting ? '40%' : `${Math.max(0, Math.min(100, p))}%`; }
 function logLine([time, msg, cls]) { const el = $('#log'); el.insertAdjacentHTML('beforeend', `<span class="${cls || ''}">[${time}] ${esc(msg)}</span>\n`); el.scrollTop = el.scrollHeight; }
 $('#cancelBtn').addEventListener('click', () => { const j = sel(); if (j?.status === 'proc') j.abort?.abort(); else if (j?.status === 'queued') { j.status = 'failed'; j.error = 'cancelled by reviewer'; putJob(j); renderAll(); } });
 $('#retryBtn').addEventListener('click', () => {
@@ -288,7 +228,11 @@ $('#retryBtn').addEventListener('click', () => {
 
 function normalize(v) {
   const ty = typeByName(v.type);
-  return { ...v, _ty: ty, _rule: v.rule || (v.rule_id && ruleById(v.rule_id)) || (ty && ruleById(ty.rule)) || null };
+  const context = LEGAL_CATALOG.events.find(e => e.type === v.type);
+  const source = context?.sources?.[0];
+  const act = source && LEGAL_CATALOG.sources.find(s => s.id === source.act);
+  const mappedRule = source ? { document: act?.title_ru || source.act, clause: source.clause, url: source.url } : null;
+  return { ...v, legal_context: context, _ty: ty, _rule: mappedRule || v.rule || (v.rule_id && ruleById(v.rule_id)) || (ty && ruleById(ty.rule)) || null };
 }
 function ruleHTML(r) {
   if (!r) return `<span class="lbl">§ ${t('rule')}:</span> ${t('noRule')}`;
@@ -307,8 +251,8 @@ function renderResult(j, justFinished) {
   vEl.className = 'verdict ' + (bad ? (r === 'pend' ? 'verdict--bad' : 'verdict--bad') : 'verdict--ok');
   vEl.textContent = bad ? t('bad') : t('ok');
   $('#rName').textContent = j.name;
-  $('#rMeta').textContent = [bad ? t('events', vs.length) : t('verdictGood'), `job ${res.job_id || '—'}`, j.elapsed ? `${j.elapsed.toFixed(1)}s` : '', res.demo ? t('demoTag') : '', bad && r === 'pend' ? `· ${t('pend')}` : bad ? `· ${t('reviewed')}` : ''].filter(Boolean).join(' · ');
-  if (justFinished) scramble($('#verdict'), vEl.textContent, 600);
+  $('#rMeta').textContent = [bad ? t('events', vs.length) : t('verdictGood'), j.elapsed ? `${j.elapsed.toFixed(1)}s` : '', res.demo ? t('demoTag') : '', bad && r === 'pend' ? `· ${t('pend')}` : bad ? `· ${t('reviewed')}` : ''].filter(Boolean).join(' · ');
+
 
   // player
   const screen = $('#screen'), video = $('#resVideo');
@@ -325,7 +269,7 @@ function renderResult(j, justFinished) {
   // events
   const box = $('#events');
   if (!vs.length) {
-    box.innerHTML = `<div class="clean"><pre>$ argus verdict ${esc(j.name)}\n→ no_violation · 0 events\n→ ${esc(t('cleanText'))}</pre></div>`;
+    box.innerHTML = `<div class="clean"><strong>✓ ${t('verdictGood')}</strong><p>${esc(t('cleanText'))}</p></div>`;
     return;
   }
   box.innerHTML = vs.map((v, i) => {
@@ -337,11 +281,11 @@ function renderResult(j, justFinished) {
       <div>
         <div class="ev__top"><span class="ev__n">#${i + 1}</span><span class="ev__type">${esc(v._ty ? pick(v._ty.name) : v.type)}</span><button class="ev__tc" data-seek="${v.timecode_sec}">▶ ${fmt(v.timecode_sec)}</button></div>
         <p class="ev__desc">${esc(v.description)}</p>
-        <div class="ev__rule">${ruleHTML(v._rule)}</div>
-        ${conf != null ? `<div class="ev__conf">${t('confidence')} <i>${bar(conf, 1, 20)}</i> ${(conf * 100).toFixed(0)}%</div>` : ''}
+        <div class="ev__rule">${ruleHTML(v._rule)}${v.legal_context ? `<p>${esc(v.legal_context.relevance_ru || '')}</p><p>${esc(v.legal_context.limitations_ru || '')}</p><p>Основание для проверки сотрудником; автоматический юридический вывод не формируется.</p>` : ''}</div>
+        ${conf != null ? `<div class="ev__conf">${t('confidence')} <i><span style="width:${conf * 100}%"></span></i> ${(conf * 100).toFixed(0)}%</div>` : ''}
         <div class="ev__act">
-          <button class="tbtn ${d === 'confirmed' ? 'is-on' : ''}" data-dec="confirmed"><span>[C]</span> ${t('confirm')}</button>
-          <button class="tbtn tbtn--forte ${d === 'dismissed' ? 'is-on' : ''}" data-dec="dismissed"><span>[X]</span> ${t('dismiss')}</button>
+          <button class="tbtn ${d === 'confirmed' ? 'is-on' : ''}" data-dec="confirmed"><span>✓</span> ${t('confirm')}</button>
+          <button class="tbtn tbtn--forte ${d === 'dismissed' ? 'is-on' : ''}" data-dec="dismissed"><span>×</span> ${t('dismiss')}</button>
           <input class="ev__note" data-note placeholder="${esc(t('note'))}" value="${esc(j.notes[i] || '')}" />
         </div>
       </div>
@@ -438,6 +382,9 @@ function download(name, text, type) { const a = document.createElement('a'); a.h
 // =========================================================
 $('#fileInput').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
 $('#bigDrop').addEventListener('click', () => $('#fileInput').click());
+['bigDrop', 'drop'].forEach((id) => document.getElementById(id).addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#fileInput').click(); }
+}));
 {
   const veil = $('#dropVeil'); let depth = 0;
   addEventListener('dragenter', (e) => { if (!e.dataTransfer?.types?.includes('Files')) return; e.preventDefault(); depth++; veil.classList.add('is-on'); });
@@ -457,7 +404,7 @@ $('#bigDrop').addEventListener('click', () => $('#fileInput').click());
 //  settings, help, misc
 // =========================================================
 const drawer = $('#drawer'), help = $('#helpModal');
-function refreshMode() { const live = isLive(); $('#modePill').classList.toggle('is-live', live); $('#modeLabel').textContent = live ? 'LIVE' : 'DEMO'; $('#modePill').title = live ? getSettings().url : 'browser demo'; }
+function refreshMode() { const live = isLive(); $('#modePill').classList.toggle('is-live', live); $('#modeLabel').textContent = live ? t('liveMode') : t('demoMode'); $('#modePill').title = live ? getSettings().url : 'browser demo'; }
 refreshMode();
 $('#modePill').addEventListener('click', () => {
   const s = getSettings(); $('#apiUrl').value = s.url; $('#apiKey').value = s.key; $('#apiPoll').value = s.poll; $('#settingsStatus').textContent = '';
@@ -466,14 +413,15 @@ $('#modePill').addEventListener('click', () => {
 const saveForm = () => { saveSettings({ url: $('#apiUrl').value.trim(), key: $('#apiKey').value.trim(), poll: $('#apiPoll').value }); refreshMode(); };
 $('#saveSettings').addEventListener('click', () => { saveForm(); toast(t('saved')); drawer.classList.remove('is-open'); });
 $('#testSettings').addEventListener('click', async () => {
-  saveForm(); const st = $('#settingsStatus'); st.className = 'status'; st.textContent = '$ ping …';
-  const ok = await ping(); st.textContent = `$ ping → ${ok ? t('testOk') : t('testBad')}`; st.classList.add(ok ? 'ok' : 'bad');
+  saveForm(); const st = $('#settingsStatus'); st.className = 'status'; st.textContent = 'Проверяем соединение…';
+  const ok = await ping(); st.textContent = `${ok ? t('testOk') : t('testBad')}`; st.classList.add(ok ? 'ok' : 'bad');
 });
 $('#helpBtn').addEventListener('click', () => help.classList.add('is-open'));
 $$('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('.modal').classList.remove('is-open')));
 $('#lightbox').addEventListener('click', () => $('#lightbox').classList.remove('is-open'));
 $('#langToggle').addEventListener('click', toggleLang);
 onLang((lang) => {
+  refreshMode();
   $('.lang-on').textContent = lang.toUpperCase(); $('.lang-off').textContent = lang === 'ru' ? 'EN' : 'RU';
   $('#keysHint').innerHTML = t('keys'); $('#keysFull').innerHTML = t('keys');
   renderAll();
@@ -520,7 +468,5 @@ function renderAll() { renderList(); renderViewer(false); renderStats(); }
   selId = jobs.find((j) => review(j) === 'pend')?.id || jobs[0]?.id || null;
   $('#keysHint').innerHTML = t('keys'); $('#keysFull').innerHTML = t('keys');
   renderAll();
-  const animated = await boot();
-  document.body.classList.remove('is-booting');
-  landing(animated);
+
 })();

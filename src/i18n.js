@@ -1,5 +1,9 @@
 // RU text lives in the HTML (data-i18n); EN overrides + JS strings live here.
 const EN = {
+  'hero.eyebrow': 'SECURITY REVIEW WORKSPACE', 'hero.title': 'Attention to detail.<br><em>Peace of mind at work.</em>', 'hero.side': 'Technology notices.<br>You make the decision.', 'hero.privacy': 'Local processing · No face recognition',
+  'ws.eyebrow': 'OVERVIEW & REVIEW', 'ws.title': 'Workspace', 'ws.sub': 'Every event under your control', 'q.title': 'Recordings', 'q.subtitle': 'Your review queue', 'bar.help': 'Help', 'v.start': 'START WITH A RECORDING', 'v.choose': 'Choose video ＋',
+  'step.1': 'Add a video', 'step.1sub': 'Cash-desk camera recording', 'step.2': 'Review events', 'step.2sub': 'Evidence, time and rule', 'step.3': 'Make a decision', 'step.3sub': 'Confirm or dismiss',
+
   'hero.sub': 'A hundred eyes on every cash desk. ARGUS reviews cash-desk footage, finds signs of cash-discipline violations and shows the evidence frame, the timecode and the Kazakhstan rule — in seconds, not hours.',
   'hero.u1': 'drop .mov into the workspace       → verdict, timecode, frames, rule',
   'hero.u2': 'confirm or dismiss every event     → daily CSV report',
@@ -17,9 +21,10 @@ const EN = {
 
 const DYN = {
   ru: {
-    bad: 'НАРУШЕНИЕ', ok: 'ЧИСТО', pend: 'К ПРОВЕРКЕ', reviewed: 'ПРОВЕРЕНО', queued: 'в очереди', proc: 'анализ', fail: 'ошибка',
+    emptyQueue: 'Здесь появятся добавленные записи. Выберите видео, чтобы начать проверку.', cardChecked: 'Обработано сегодня', cardPending: 'Ожидают вашего решения', cardConfirmed: 'Подтверждено событий', liveMode: 'Сервер подключён', demoMode: 'Демо · Настройки',
+    bad: 'Требует внимания', ok: 'Без замечаний', pend: 'К ПРОВЕРКЕ', reviewed: 'ПРОВЕРЕНО', queued: 'в очереди', proc: 'анализ', fail: 'ошибка',
     verdictBad: 'Обнаружены признаки возможных нарушений', verdictGood: 'Нарушение не обнаружено',
-    events: (n) => `${n} событ.`, confirm: 'подтвердить', dismiss: 'отклонить', note: 'комментарий проверяющего…',
+    events: (n) => `${n} событ.`, confirm: 'Подтвердить нарушение', dismiss: 'Отклонить событие', note: 'комментарий проверяющего…',
     rule: 'НОРМА', noRule: 'источник не указан моделью', confidence: 'уверенность',
     cleanText: 'Модель не нашла событий, требующих внимания.',
     today: (a) => `${a.checked} проверено · ${a.flagged} с нарушением · ${a.pending} ждут проверки`,
@@ -36,6 +41,7 @@ const DYN = {
 <b>Del</b>      удалить из истории       <b>?</b>        эта справка`,
   },
   en: {
+    emptyQueue: 'Your recordings will appear here. Add a video to begin.', cardChecked: 'Processed today', cardPending: 'Awaiting your decision', cardConfirmed: 'Confirmed events', liveMode: 'Server connected', demoMode: 'Demo · Settings',
     bad: 'VIOLATION', ok: 'CLEAN', pend: 'TO REVIEW', reviewed: 'REVIEWED', queued: 'queued', proc: 'analyzing', fail: 'failed',
     verdictBad: 'Signs of possible violations found', verdictGood: 'No violation detected',
     events: (n) => `${n} event${n === 1 ? '' : 's'}`, confirm: 'confirm', dismiss: 'dismiss', note: 'reviewer note…',

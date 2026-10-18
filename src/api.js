@@ -14,8 +14,8 @@ export function getSettings() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
   return {
-    url: (s.url ?? ENV_URL).replace(/\/+$/, ''),
-    key: s.key ?? ENV_KEY,
+    url: (window.ARGUS_LOCAL ? location.origin : (s.url ?? ENV_URL)).replace(/\/+$/, ''),
+    key: window.ARGUS_LOCAL?.key ?? s.key ?? ENV_KEY,
     poll: Number(s.poll) || 1500,
   };
 }
@@ -28,8 +28,8 @@ export async function ping() {
   const { url, key } = getSettings();
   if (!url) return false;
   try {
-    const r = await fetch(`${url}/api/v1/jobs/ping`, { headers: { 'X-API-Key': key } });
-    return r.status < 500; // 404 for unknown job is still "alive"
+    const r = await fetch(`${url}/api/v1/health`, { headers: { 'X-API-Key': key } });
+    return r.ok && (await r.json()).ready === true;
   } catch { return false; }
 }
 
@@ -66,24 +66,21 @@ async function analyzeLive(file, { onPhase, onProgress, onLog, signal }) {
   onPhase('queue');
 
   const started = Date.now();
-  let pct = 35;
-  let phaseIdx = 0;
-  const phases = ['frames', 'detect', 'rules'];
+  onPhase('detect');
+  onProgress(null);
   while (true) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    await sleep(poll);
+    if (Date.now() - started > 300000) throw new Error('Превышено время ожидания проверки (5 минут).');
+    await sleep(Math.max(500, Math.min(10000, Number(poll) || 1500)));
     const r = await fetch(`${url}/api/v1/jobs/${encodeURIComponent(jobId)}`, { headers: { 'X-API-Key': key }, signal });
     if (!r.ok) throw new Error(`HTTP ${r.status} on /jobs`);
     const data = await r.json();
     const elapsed = (Date.now() - started) / 1000;
     onLog(`GET /jobs/${jobId} → ${data.status} (${elapsed.toFixed(1)}s)`);
     if (data.status === 'done') { onProgress(100); return { ...data, job_id: data.job_id || jobId }; }
-    if (data.status === 'failed') throw new Error(data.error || 'Job failed on server');
-    // optional server-side progress, else fake an asymptote
-    pct = typeof data.progress === 'number' ? 35 + data.progress * 0.64 : pct + (99 - pct) * 0.08;
-    onProgress(pct);
-    const next = Math.min(phases.length - 1, Math.floor(((pct - 35) / 64) * phases.length));
-    if (next >= phaseIdx) { onPhase(phases[next]); phaseIdx = next + 1; }
+    if (data.status === 'failed') throw new Error(data.error || 'Проверка не завершена: ошибка модели или превышено время анализа. Попробуйте снова.');
+    // The frozen detector reports no milestones; do not invent a percentage.
+    onProgress(typeof data.progress === 'number' ? 35 + data.progress * 0.64 : null);
   }
 }
 

@@ -8,28 +8,19 @@
 export const RULES = [
   {
     id: 'nbrk-231',
-    title: {
-      ru: 'Правила осуществления кассовых операций и операций по инкассации банкнот, монет и ценностей',
-      en: 'Rules on cash operations and cash-in-transit of banknotes, coins and valuables',
-    },
-    meta: {
-      ru: 'Постановление Правления НБРК от 29.11.2019 № 231 · рег. V1900019680',
-      en: 'NBK Board Resolution of 29.11.2019 No. 231 · reg. V1900019680',
-    },
-    clause: { ru: 'пункт — уточнить', en: 'clause — to verify' },
+    title: { ru: 'Правила осуществления кассовых операций', en: 'Rules on cash operations' },
+    meta: { ru: 'Постановление Правления НБРК от 29.11.2019 № 231', en: 'NBK Board Resolution No. 231 of 29 November 2019' },
+    clause: { ru: 'Применимость зависит от события', en: 'Applicability depends on the event' },
     clauseVerified: false,
     url: 'https://adilet.zan.kz/rus/docs/V1900019680',
   },
   {
-    id: 'law-banks',
-    title: {
-      ru: 'Закон РК «О банках и банковской деятельности в Республике Казахстан»',
-      en: 'Law of RK “On Banks and Banking Activity in the Republic of Kazakhstan”',
-    },
-    meta: { ru: 'от 31.08.1995 № 2444', en: 'of 31.08.1995 No. 2444' },
-    clause: { ru: 'статья — уточнить', en: 'article — to verify' },
+    id: 'nbrk-14',
+    title: { ru: 'Требования к помещениям банков', en: 'Requirements for bank premises' },
+    meta: { ru: 'Постановление Правления НБРК от 24.02.2020 № 14', en: 'NBK Board Resolution No. 14 of 24 February 2020' },
+    clause: { ru: 'Применимость зависит от события', en: 'Applicability depends on the event' },
     clauseVerified: false,
-    url: 'https://adilet.zan.kz/rus/docs/Z950002444_',
+    url: 'https://adilet.zan.kz/rus/docs/V2000020075',
   },
 ];
 

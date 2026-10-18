@@ -1,0 +1,3 @@
+
+# Preserve the frozen detector exactly as supplied in the final archive.
+backend/model_package/detector/** -text
